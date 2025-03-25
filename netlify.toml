@@ -1,5 +1,5 @@
 [build]
-  command = "npm run build"
+  command = "npm install"
   functions = "netlify/functions"
   publish = "."
 
@@ -14,4 +14,4 @@
 [[redirects]]
   from = "/*"
   to = "/booking-form.html"
-  status = 200 
+  status = 200
