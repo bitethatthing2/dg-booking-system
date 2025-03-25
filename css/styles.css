@@ -1,19 +1,37 @@
-/* Global Styles */
+/* Variables */
+:root {
+  --primary: #3498db;
+  --primary-dark: #2980b9;
+  --text-dark: #2c3e50;
+  --text-light: #7f8c8d;
+  --border-color: #ddd;
+  --background-light: #f5f5f5;
+  --background-white: #fff;
+  --shadow: rgba(0, 0, 0, 0.1);
+  --success-bg: #d4edda;
+  --success-text: #155724;
+  --error-bg: #f8d7da;
+  --error-text: #721c24;
+  --warning-bg: #fff3cd;
+  --warning-text: #856404;
+}
+
+/* Base Styles */
 body {
   font-family: 'Poppins', sans-serif;
   margin: 0;
   padding: 20px;
-  background-color: #f5f5f5;
-  color: #333;
+  background-color: var(--background-light);
+  color: var(--text-dark);
 }
 
 .container {
   max-width: 800px;
   margin: 0 auto;
-  background: white;
+  background: var(--background-white);
   padding: 30px;
   border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 10px var(--shadow);
 }
 
 /* Header Styles */
@@ -23,12 +41,12 @@ body {
 }
 
 .header h1 {
-  color: #2c3e50;
+  color: var(--text-dark);
   margin-bottom: 10px;
 }
 
 .header p {
-  color: #7f8c8d;
+  color: var(--text-light);
   margin: 0;
 }
 
@@ -47,7 +65,7 @@ body {
   left: 0;
   right: 0;
   height: 2px;
-  background: #e0e0e0;
+  background: var(--border-color);
   transform: translateY(-50%);
   z-index: 1;
 }
@@ -62,31 +80,31 @@ body {
 .step-circle {
   width: 30px;
   height: 30px;
-  background: white;
-  border: 2px solid #e0e0e0;
+  background: var(--background-white);
+  border: 2px solid var(--border-color);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 10px;
   font-weight: 600;
-  color: #7f8c8d;
+  color: var(--text-light);
 }
 
 .step-label {
   font-size: 14px;
-  color: #7f8c8d;
+  color: var(--text-light);
 }
 
 .progress-step.active .step-circle {
-  border-color: #3498db;
-  color: #3498db;
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .progress-step.completed .step-circle {
-  background: #3498db;
-  border-color: #3498db;
-  color: white;
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--background-white);
 }
 
 /* Form Section Styles */
@@ -101,20 +119,21 @@ body {
 .step-instruction {
   margin-bottom: 20px;
   padding: 15px;
-  background: #f8f9fa;
+  background: var(--background-light);
   border-radius: 5px;
-  color: #2c3e50;
+  color: var(--text-dark);
 }
 
 .form-group {
   margin-bottom: 20px;
 }
 
+/* Form Input Styles */
 label {
   display: block;
   margin-bottom: 8px;
   font-weight: 500;
-  color: #2c3e50;
+  color: var(--text-dark);
 }
 
 select,
@@ -123,15 +142,15 @@ input[type="tel"],
 input[type="email"] {
   width: 100%;
   padding: 10px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 5px;
   font-size: 16px;
-  color: #2c3e50;
+  color: var(--text-dark);
 }
 
 .helper-text {
   font-size: 14px;
-  color: #7f8c8d;
+  color: var(--text-light);
   margin-top: 5px;
 }
 
@@ -142,7 +161,7 @@ input[type="email"] {
 }
 
 .service-option {
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 5px;
   padding: 15px;
   cursor: pointer;
@@ -152,8 +171,8 @@ input[type="email"] {
 }
 
 .service-option:hover {
-  border-color: #3498db;
-  background: #f8f9fa;
+  border-color: var(--primary);
+  background: var(--background-light);
 }
 
 .service-option input[type="radio"] {
@@ -161,7 +180,7 @@ input[type="email"] {
 }
 
 .service-option.selected {
-  border-color: #3498db;
+  border-color: var(--primary);
   background: #ebf5fb;
 }
 
@@ -172,21 +191,21 @@ input[type="email"] {
 
 .service-name {
   font-weight: 500;
-  color: #2c3e50;
+  color: var(--text-dark);
 }
 
 .service-details {
   font-size: 14px;
-  color: #7f8c8d;
+  color: var(--text-light);
   margin-top: 5px;
 }
 
 .service-price {
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--text-dark);
 }
 
-/* Navigation Buttons */
+/* Button Styles */
 .navigation-buttons {
   display: flex;
   justify-content: space-between;
@@ -204,8 +223,8 @@ button {
 }
 
 .btn-prev {
-  background: #f8f9fa;
-  color: #2c3e50;
+  background: var(--background-light);
+  color: var(--text-dark);
 }
 
 .btn-prev:hover {
@@ -214,13 +233,13 @@ button {
 
 .btn-next,
 .btn-submit {
-  background: #3498db;
-  color: white;
+  background: var(--primary);
+  color: var(--background-white);
 }
 
 .btn-next:hover,
 .btn-submit:hover {
-  background: #2980b9;
+  background: var(--primary-dark);
 }
 
 .btn-prev.hidden {
@@ -237,20 +256,20 @@ button {
 }
 
 #message.success {
-  background: #d4edda;
-  color: #155724;
+  background: var(--success-bg);
+  color: var(--success-text);
   border: 1px solid #c3e6cb;
 }
 
 #message.error {
-  background: #f8d7da;
-  color: #721c24;
+  background: var(--error-bg);
+  color: var(--error-text);
   border: 1px solid #f5c6cb;
 }
 
 #message.warning {
-  background: #fff3cd;
-  color: #856404;
+  background: var(--warning-bg);
+  color: var(--warning-text);
   border: 1px solid #ffeeba;
 }
 

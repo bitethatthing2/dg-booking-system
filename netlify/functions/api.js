@@ -3,17 +3,56 @@ const { google } = require('googleapis');
 const nodemailer = require('nodemailer');
 require('dotenv').config();
 
+// Configuration and Setup
+const CONFIG = {
+  emailService: process.env.EMAIL_SERVICE || 'gmail',
+  emailUser: process.env.EMAIL_USER,
+  emailPass: process.env.EMAIL_PASS,
+  googleClientEmail: process.env.GOOGLE_CLIENT_EMAIL,
+  googlePrivateKey: process.env.GOOGLE_PRIVATE_KEY,
+  spreadsheetId: process.env.SPREADSHEET_ID || process.env.SHEET_ID || '1GwdJssNZR54l3LI9UMeuRN5G5YwQXVlzmIrDWzOJY90',
+  calendarId: process.env.CALENDAR_ID || 'gthabarber1@gmail.com',
+  timeZone: 'America/Los_Angeles'
+};
+
 // Debug environment variables (without exposing secrets)
 console.log('=== API Configuration ===');
-console.log('Email User configured:', !!process.env.EMAIL_USER);
-console.log('Email Pass configured:', !!process.env.EMAIL_PASS);
-console.log('Google Sheets credentials available:', !!process.env.GOOGLE_CLIENT_EMAIL && !!process.env.GOOGLE_PRIVATE_KEY);
-console.log('Spreadsheet ID:', process.env.SPREADSHEET_ID || process.env.SHEET_ID || 'Using default ID');
-console.log('Calendar ID available:', !!process.env.CALENDAR_ID);
+console.log('Email User configured:', !!CONFIG.emailUser);
+console.log('Email Pass configured:', !!CONFIG.emailPass);
+console.log('Google Sheets credentials available:', !!CONFIG.googleClientEmail && !!CONFIG.googlePrivateKey);
+console.log('Spreadsheet ID:', CONFIG.spreadsheetId);
+console.log('Calendar ID available:', !!CONFIG.calendarId);
 
 // Check if credentials are available
-console.log('Email configured:', !!process.env.EMAIL_PASS);
-console.log('Google Sheets configured:', !!process.env.GOOGLE_CLIENT_EMAIL && !!process.env.GOOGLE_PRIVATE_KEY);
+console.log('Email configured:', !!CONFIG.emailPass);
+console.log('Google Sheets configured:', !!CONFIG.googleClientEmail && !!CONFIG.googlePrivateKey);
+
+// Common response headers
+const HEADERS = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Cache-Control': 'no-cache, no-store'
+};
+
+// Service durations in minutes
+const SERVICE_DURATIONS = {
+  'Haircut & Beard Trim': 60,
+  'Haircut': 45,
+  'Beard Trim': 30,
+  'Straight Razor Shave': 30,
+  'Hair Enhancement (Permanent)': 45,
+  'Hair Enhancement (Temporary - Air-Brush)': 15
+};
+
+// Calendar event colors
+const CALENDAR_COLORS = {
+  'Haircut & Beard Trim': '6', // Orange
+  'Haircut': '9',              // Blue
+  'Beard Trim': '10',          // Green
+  'Straight Razor Shave': '7', // Teal
+  'Hair Enhancement': '4',     // Red
+  'default': '1'               // Lavender
+};
 
 // Helper function to get Google auth
 async function getGoogleAuth() {
@@ -41,8 +80,8 @@ async function getGoogleAuth() {
     
     // Fallback to individual credentials
     const credentials = {
-      client_email: process.env.GOOGLE_CLIENT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+      client_email: CONFIG.googleClientEmail,
+      private_key: CONFIG.googlePrivateKey?.replace(/\\n/g, '\n')
     };
     
     if (!credentials.client_email || !credentials.private_key) {
@@ -69,16 +108,16 @@ async function getGoogleAuth() {
 
 // Email sender setup
 const createTransporter = () => {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+  if (!CONFIG.emailUser || !CONFIG.emailPass) {
     console.error('Email credentials not properly configured');
     return null;
   }
 
   return nodemailer.createTransport({
-    service: process.env.EMAIL_SERVICE || 'gmail',
+    service: CONFIG.emailService,
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
+      user: CONFIG.emailUser,
+      pass: CONFIG.emailPass
     }
   });
 };
@@ -107,13 +146,13 @@ async function sendConfirmationEmail(booking) {
         <li><strong>Barber:</strong> ${booking.barber}</li>
         <li><strong>Service:</strong> ${booking.service}</li>
       </ul>
-      <p>If you need to reschedule or cancel, please contact us at ${process.env.EMAIL_USER || 'our office'}.</p>
+      <p>If you need to reschedule or cancel, please contact us at ${CONFIG.emailUser || 'our office'}.</p>
       <p>Thank you for choosing our services!</p>
     `;
     
     // Email to customer
     const customerMailOptions = {
-      from: process.env.EMAIL_USER,
+      from: CONFIG.emailUser,
       to: booking.email,
       subject: 'Barber Appointment Confirmation',
       html: emailContent
@@ -139,8 +178,8 @@ async function sendConfirmationEmail(booking) {
     
     // Email to barber
     const barberMailOptions = {
-      from: process.env.EMAIL_USER,
-      to: process.env.EMAIL_USER,
+      from: CONFIG.emailUser,
+      to: CONFIG.emailUser,
       subject: `New Appointment: ${booking.date} at ${booking.time}`,
       html: barberEmailContent
     };
@@ -165,13 +204,12 @@ async function loadSheetData() {
     }
     
     const sheets = google.sheets({ version: 'v4', auth });
-    const spreadsheetId = process.env.SPREADSHEET_ID || process.env.SHEET_ID || '1GwdJssNZR54l3LI9UMeuRN5G5YwQXVlzmIrDWzOJY90';
     
-    console.log(`Loading sheet data from spreadsheet: ${spreadsheetId}`);
+    console.log(`Loading sheet data from spreadsheet: ${CONFIG.spreadsheetId}`);
     
     // Get Available_Times data
     const response = await sheets.spreadsheets.values.get({
-      spreadsheetId,
+      spreadsheetId: CONFIG.spreadsheetId,
       range: 'Available_Times!A:Z', // Get all columns to be safe
     });
     
@@ -258,7 +296,8 @@ async function updateAvailability(date, time, barber) {
     }
     
     const sheets = google.sheets({ version: 'v4', auth });
-    const spreadsheetId = process.env.SPREADSHEET_ID || process.env.SHEET_ID || '1GwdJssNZR54l3LI9UMeuRN5G5YwQXVlzmIrDWzOJY90';
+    
+    console.log(`Searching for slot: ${date} at ${time} with ${barber}`);
     
     // Get current data
     const sheetData = await loadSheetData();
@@ -266,8 +305,6 @@ async function updateAvailability(date, time, barber) {
       console.error('Failed to load sheet data for update');
       return false;
     }
-    
-    console.log(`Searching for slot: ${date} at ${time} with ${barber}`);
     
     // Find the row to update - more flexible matching
     const rowToUpdate = sheetData.data.find(row => {
@@ -307,7 +344,7 @@ async function updateAvailability(date, time, barber) {
     
     // Update the status to "Booked"
     await sheets.spreadsheets.values.update({
-      spreadsheetId,
+      spreadsheetId: CONFIG.spreadsheetId,
       range: `Available_Times!${statusColumnLetter}${rowToUpdate.rowIndex}`,
       valueInputOption: 'RAW',
       resource: {
@@ -335,7 +372,6 @@ async function addBookingToSheet(booking) {
     }
     
     const sheets = google.sheets({ version: 'v4', auth });
-    const spreadsheetId = process.env.SPREADSHEET_ID || process.env.SHEET_ID || '1GwdJssNZR54l3LI9UMeuRN5G5YwQXVlzmIrDWzOJY90';
     
     // Get timestamp
     const timestamp = new Date().toISOString();
@@ -347,7 +383,7 @@ async function addBookingToSheet(booking) {
     
     // Add to Form Responses sheet
     await sheets.spreadsheets.values.append({
-      spreadsheetId,
+      spreadsheetId: CONFIG.spreadsheetId,
       range: 'Form Responses!A:H',
       valueInputOption: 'USER_ENTERED',
       resource: { values }
@@ -371,10 +407,8 @@ async function addToCalendar(booking) {
     }
     
     const calendar = google.calendar({ version: 'v3', auth });
-    // Use the specific calendar ID for gthabarber1@gmail.com or fall back to environment variable
-    const calendarId = process.env.CALENDAR_ID || 'gthabarber1@gmail.com';
     
-    console.log(`Using calendar ID: ${calendarId}`);
+    console.log(`Using calendar ID: ${CONFIG.calendarId}`);
     
     // Parse date and time to create event
     const [month, day, year] = booking.date.split('/');
@@ -512,7 +546,7 @@ Appointment booked through DG Barbers online booking system
     
     // Insert event to calendar
     const response = await calendar.events.insert({
-      calendarId: calendarId,
+      calendarId: CONFIG.calendarId,
       resource: event,
       sendUpdates: 'all' // Send updates to all attendees (if any are added later)
     });
@@ -691,7 +725,7 @@ async function getAvailableTimes(date, barber) {
   }
 }
 
-// Main handler function
+// Export the handler function
 exports.handler = async function(event, context) {
   console.log('Event path:', event.path);
   console.log('Event httpMethod:', event.httpMethod);
@@ -700,19 +734,12 @@ exports.handler = async function(event, context) {
   const path = event.path.replace('/.netlify/functions/api', '') || '/';
   console.log('Parsed path:', path);
   
-  // Set common headers for all responses
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Cache-Control': 'no-cache, no-store'
-  };
-  
   // Handle OPTIONS requests for CORS preflight
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
       headers: {
-        ...headers,
+        ...HEADERS,
         'Access-Control-Allow-Headers': 'Content-Type',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
       },
@@ -720,123 +747,76 @@ exports.handler = async function(event, context) {
     };
   }
   
-  // Basic routing
-  if (event.httpMethod === 'GET') {
-    // Root endpoint
-    if (path === '/' || path === '/health') {
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          status: 'ok',
-          message: 'Booking API is running',
-          timestamp: new Date().toISOString()
-        })
-      };
-    }
-    
-    // Get available barbers
-    if (path === '/available-barbers') {
-      try {
-        const barbers = await getAvailableBarbers();
-        
-      return {
-        statusCode: 200,
-          headers,
-          body: JSON.stringify({ barbers })
-        };
-      } catch (error) {
-        console.error('Error in /available-barbers:', error);
-        return {
-          statusCode: 500,
-          headers,
-        body: JSON.stringify({
-            error: 'Failed to fetch barbers',
-            message: error.message
-        })
-      };
-      }
-    }
-    
-    // Get available dates
-    if (path.startsWith('/available-dates')) {
-      try {
-      const parts = path.split('/');
-        const barber = parts[2] ? decodeURIComponent(parts[2]) : null;
-        
-        const dates = await getAvailableDates(barber);
-      
-      return {
-        statusCode: 200,
-          headers,
-          body: JSON.stringify({ dates })
-        };
-      } catch (error) {
-        console.error('Error in /available-dates:', error);
-        return {
-          statusCode: 500,
-          headers,
-        body: JSON.stringify({
-            error: 'Failed to fetch dates',
-            message: error.message
-          })
-        };
-      }
-    }
-    
-    // Get available times
-    if (path.startsWith('/available-times')) {
-      try {
-      const parts = path.split('/');
-      
-      // parts[0] is empty because path starts with '/'
-      // parts[1] is 'available-times'
-      // parts[2] should be the date
-      // parts[3] should be the barber (optional)
-      
-      const date = parts[2] ? decodeURIComponent(parts[2]) : null;
-        const barber = parts[3] ? decodeURIComponent(parts[3]) : null;
-      
-      if (!date) {
-        return {
-            statusCode: 400,
-            headers,
-          body: JSON.stringify({ 
-            error: 'Date is required',
-              availableTimes: [] 
-          })
-        };
-      }
-      
-        const availableTimes = await getAvailableTimes(date, barber);
-        
+  try {
+    // Basic routing
+    if (event.httpMethod === 'GET') {
+      // Health check endpoint
+      if (path === '/' || path === '/health') {
         return {
           statusCode: 200,
-          headers,
+          headers: HEADERS,
+          body: JSON.stringify({
+            status: 'ok',
+            message: 'Booking API is running',
+            timestamp: new Date().toISOString()
+          })
+        };
+      }
+      
+      // Available barbers endpoint
+      if (path === '/available-barbers') {
+        const barbers = await getAvailableBarbers();
+        return {
+          statusCode: 200,
+          headers: HEADERS,
+          body: JSON.stringify({ barbers })
+        };
+      }
+      
+      // Available dates endpoint
+      if (path.startsWith('/available-dates')) {
+        const parts = path.split('/');
+        const barber = parts[2] ? decodeURIComponent(parts[2]) : null;
+        const dates = await getAvailableDates(barber);
+        return {
+          statusCode: 200,
+          headers: HEADERS,
+          body: JSON.stringify({ dates })
+        };
+      }
+      
+      // Available times endpoint
+      if (path.startsWith('/available-times')) {
+        const parts = path.split('/');
+        const date = parts[2] ? decodeURIComponent(parts[2]) : null;
+        const barber = parts[3] ? decodeURIComponent(parts[3]) : null;
+        
+        if (!date) {
+          return {
+            statusCode: 400,
+            headers: HEADERS,
+            body: JSON.stringify({ 
+              error: 'Date is required',
+              availableTimes: [] 
+            })
+          };
+        }
+        
+        const availableTimes = await getAvailableTimes(date, barber);
+        return {
+          statusCode: 200,
+          headers: HEADERS,
           body: JSON.stringify({ 
             availableTimes,
             date,
             barber: barber || 'Any'
           })
         };
-      } catch (error) {
-        console.error('Error in /available-times:', error);
-        return {
-          statusCode: 500,
-          headers,
-          body: JSON.stringify({ 
-            error: 'Failed to fetch times',
-            message: error.message,
-            availableTimes: [] // Always include this for client compatibility
-          })
-        };
       }
     }
-  }
-  
-  // Handle booking submission
-  if (event.httpMethod === 'POST' && path === '/submit-booking') {
-    try {
+    
+    // Handle booking submission
+    if (event.httpMethod === 'POST' && path === '/submit-booking') {
       const booking = JSON.parse(event.body);
       console.log('Booking submission received:', booking);
       
@@ -852,7 +832,7 @@ exports.handler = async function(event, context) {
         
         return {
           statusCode: 400,
-          headers,
+          headers: HEADERS,
           body: JSON.stringify({
             success: false,
             message: 'Missing required booking information'
@@ -860,18 +840,15 @@ exports.handler = async function(event, context) {
         };
       }
       
+      // Process booking
       console.log(`Processing booking: ${booking.date} at ${booking.time} with ${booking.barber} for ${booking.name}`);
       
-      // Step 1: Update availability in sheet
-      console.log('Attempting to update availability in sheet...');
+      // Update availability
       const updated = await updateAvailability(booking.date, booking.time, booking.barber);
-      console.log('Update availability result:', updated);
-      
       if (!updated) {
-        console.log('Failed to update availability - slot might be already booked');
         return {
           statusCode: 409,
-          headers,
+          headers: HEADERS,
           body: JSON.stringify({
             success: false,
             message: 'This time slot is no longer available. Please select another time.'
@@ -879,35 +856,24 @@ exports.handler = async function(event, context) {
         };
       }
       
-      // Step 2: Add booking to sheet
-      console.log('Adding booking to sheet...');
-      const sheetUpdated = await addBookingToSheet(booking);
-      console.log('Sheet update result:', sheetUpdated);
+      // Add to sheet and calendar
+      const [sheetUpdated, calendarUpdated] = await Promise.all([
+        addBookingToSheet(booking),
+        addToCalendar(booking).catch(err => {
+          console.error('Calendar error:', err);
+          return false;
+        })
+      ]);
       
-      // Step 3: Add to Google Calendar
-      console.log('Adding booking to Google Calendar...');
-      let calendarUpdated = false;
-      try {
-        calendarUpdated = await addToCalendar(booking);
-        console.log('Calendar update result:', calendarUpdated);
-      } catch (calendarError) {
-        console.error('Error adding to calendar (continuing with booking):', calendarError);
-      }
+      // Send confirmation email
+      const emailSent = await sendConfirmationEmail(booking).catch(err => {
+        console.error('Email error:', err);
+        return false;
+      });
       
-      // Step 4: Send confirmation email
-      console.log('Sending confirmation email...');
-      let emailSent = false;
-      try {
-        emailSent = await sendConfirmationEmail(booking);
-        console.log('Email send result:', emailSent);
-      } catch (emailError) {
-        console.error('Error sending email (continuing with booking):', emailError);
-      }
-      
-      console.log('Booking process completed successfully');
       return {
         statusCode: 200,
-        headers,
+        headers: HEADERS,
         body: JSON.stringify({
           success: true,
           message: 'Booking confirmed successfully!',
@@ -916,31 +882,30 @@ exports.handler = async function(event, context) {
           calendarUpdated
         })
       };
-      
-    } catch (error) {
-      console.error('Error processing booking:', error);
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({
-          success: false,
-          message: 'Failed to process booking',
-          error: error.message
-        })
-      };
     }
+    
+    // If no route matches
+    return {
+      statusCode: 404,
+      headers: HEADERS,
+      body: JSON.stringify({
+        success: false,
+        message: 'Endpoint not found',
+        path,
+        method: event.httpMethod
+      })
+    };
+    
+  } catch (error) {
+    console.error('Error processing request:', error);
+    return {
+      statusCode: 500,
+      headers: HEADERS,
+      body: JSON.stringify({
+        success: false,
+        message: 'Internal server error',
+        error: error.message
+      })
+    };
   }
-  
-  // If no route matches, return 404
-  return {
-    statusCode: 404,
-    headers,
-    body: JSON.stringify({
-      success: false,
-      message: 'Endpoint not found',
-      path,
-      method: event.httpMethod
-    })
-  };
-};/ /   T e m p o r a r y   c o m m e n t  
- 
+};
