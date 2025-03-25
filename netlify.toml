@@ -1,11 +1,14 @@
 [build]
-  command = "# no build command needed"
-  publish = "."
+  command = "npm run build"
   functions = "netlify/functions"
+  publish = "."
+
+[functions]
+  node_bundler = "esbuild"
 
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/:splat"
+  to = "/.netlify/functions/api/:splat"
   status = 200
 
 [[redirects]]
