@@ -12,6 +12,6 @@
   status = 200
 
 [[redirects]]
-  from = "/*"
+  from = "/"
   to = "/booking-form.html"
   status = 200
