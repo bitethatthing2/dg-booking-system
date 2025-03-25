@@ -22,7 +22,11 @@ const addSpecialDaysMessage = () => {
   
   // Add after date selection in Step 3
   const dateGroup = document.querySelector('.form-section[data-step="3"] .form-group:first-child');
-  dateGroup.appendChild(specialDaysMessageDiv);
+  if (dateGroup) {
+    dateGroup.appendChild(specialDaysMessageDiv);
+  } else {
+    console.warn('Date group element not found for special days message');
+  }
 };
 
 // Helper function to handle API errors
@@ -55,8 +59,7 @@ serviceOptions.forEach(option => {
 // Load barbers when page loads
 window.addEventListener('DOMContentLoaded', async () => {
   try {
-    // Add special days message
-    addSpecialDaysMessage();
+    // We'll add the special days message when navigating to step 3 instead of here
     
     const response = await fetch(`${API_BASE_URL}/available-barbers`, {
       headers: {
@@ -275,6 +278,15 @@ function showStep(stepNumber) {
   });
   document.querySelector(`.form-section[data-step="${stepNumber}"]`).classList.add('active');
   updateProgressBar(stepNumber);
+  
+  // Add special days message when navigating to step 3
+  if (stepNumber === 3) {
+    // Check if message already exists to avoid duplicates
+    const existingMessage = document.querySelector('.special-days-message');
+    if (!existingMessage) {
+      addSpecialDaysMessage();
+    }
+  }
 }
 
 function validateStep(step) {
