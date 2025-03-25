@@ -55,20 +55,48 @@ exports.handler = async function(event, context) {
     
     // Test endpoint
     if (path === '/test') {
-      return {
-        statusCode: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        },
-        body: JSON.stringify({
-          success: true,
-          message: 'API test endpoint is working!',
-          spreadsheetId: SPREADSHEET_ID,
-          hasCredentials: !!process.env.GOOGLE_CREDENTIALS,
-          timestamp: new Date().toISOString()
-        })
-      };
+      try {
+        const auth = await loadCredentials();
+        const sheets = google.sheets({ version: 'v4', auth });
+        
+        // Get all sheet names to help debug
+        const sheetsMetadata = await sheets.spreadsheets.get({
+          spreadsheetId: SPREADSHEET_ID
+        });
+        
+        const sheetNames = sheetsMetadata.data.sheets.map(sheet => sheet.properties.title);
+        
+        return {
+          statusCode: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          },
+          body: JSON.stringify({
+            success: true,
+            message: 'API test endpoint is working!',
+            spreadsheetId: SPREADSHEET_ID,
+            hasCredentials: !!process.env.GOOGLE_CREDENTIALS,
+            sheetNames: sheetNames,
+            timestamp: new Date().toISOString()
+          })
+        };
+      } catch (error) {
+        console.error('Error in test endpoint:', error);
+        return {
+          statusCode: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          },
+          body: JSON.stringify({ 
+            error: 'Test endpoint error', 
+            details: error.message,
+            spreadsheetId: SPREADSHEET_ID,
+            googleCredentialsExist: !!process.env.GOOGLE_CREDENTIALS
+          })
+        };
+      }
     }
     
     // Barbers endpoint
@@ -81,14 +109,18 @@ exports.handler = async function(event, context) {
         const sheets = google.sheets({ version: 'v4', auth });
         console.log('Google Sheets initialized');
         
+        // Use the Available_Times sheet and extract unique barber names
         const response = await sheets.spreadsheets.values.get({
           spreadsheetId: SPREADSHEET_ID,
-          range: 'Barbers',
+          range: 'Available_Times',
         });
         console.log('Spreadsheet data fetched successfully');
 
-        const barbers = response.data.values.slice(1).map(row => row[0]);
-        console.log('Barbers found:', barbers);
+        // Extract unique barber names from column C (index 2)
+        const allBarberEntries = response.data.values.slice(1).map(row => row[2]);
+        const uniqueBarbers = [...new Set(allBarberEntries)].filter(Boolean);
+        
+        console.log('Barbers found:', uniqueBarbers);
         
         return {
           statusCode: 200,
@@ -96,7 +128,7 @@ exports.handler = async function(event, context) {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*'
           },
-          body: JSON.stringify({ barbers })
+          body: JSON.stringify({ barbers: uniqueBarbers })
         };
       } catch (error) {
         console.error('Error fetching barbers:', error);
@@ -124,10 +156,12 @@ exports.handler = async function(event, context) {
         
         const response = await sheets.spreadsheets.values.get({
           spreadsheetId: SPREADSHEET_ID,
-          range: 'Availability',
+          range: 'Available_Times',
         });
 
-        let dates = response.data.values.slice(1).map(row => row[0]);
+        // Extract unique dates from column A (index 0)
+        const allDateEntries = response.data.values.slice(1).map(row => row[0]);
+        const uniqueDates = [...new Set(allDateEntries)].filter(Boolean);
         
         return {
           statusCode: 200,
@@ -135,7 +169,7 @@ exports.handler = async function(event, context) {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*'
           },
-          body: JSON.stringify({ dates })
+          body: JSON.stringify({ dates: uniqueDates })
         };
       } catch (error) {
         console.error('Error fetching dates:', error);
@@ -155,34 +189,29 @@ exports.handler = async function(event, context) {
       try {
         const parts = path.split('/');
         const date = parts[2];
-        const barber = parts[3] || 'Any barber';
+        const barber = parts[3] || null;
         
         const auth = await loadCredentials();
         const sheets = google.sheets({ version: 'v4', auth });
         
         const response = await sheets.spreadsheets.values.get({
           spreadsheetId: SPREADSHEET_ID,
-          range: 'Availability',
+          range: 'Available_Times',
         });
 
-        const rows = response.data.values;
-        const dateIndex = rows.findIndex(row => row[0] === date);
+        const rows = response.data.values.slice(1);
         
-        if (dateIndex === -1) {
-          return {
-            statusCode: 200,
-            headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*'
-            },
-            body: JSON.stringify({ availableTimes: [] })
-          };
-        }
-
-        const times = rows[dateIndex].slice(1).filter(time => time !== '');
-        const availableTimes = times.map(time => ({
-          time,
-          barber: barber
+        // Filter rows by date and status
+        const availableSlots = rows.filter(row => 
+          row[0] === date && 
+          row[3] === 'Available' && 
+          (!barber || row[2] === barber)
+        );
+        
+        // Map to time slots
+        const availableTimes = availableSlots.map(row => ({
+          time: row[1],
+          barber: row[2]
         }));
         
         return {
@@ -212,34 +241,41 @@ exports.handler = async function(event, context) {
         const auth = await loadCredentials();
         const sheets = google.sheets({ version: 'v4', auth });
         
-        const response = await sheets.spreadsheets.values.get({
+        // Get both Available_Times and Form Responses
+        const availableTimes = await sheets.spreadsheets.values.get({
           spreadsheetId: SPREADSHEET_ID,
-          range: 'Form Responses',
+          range: 'Available_Times',
         });
-
-        const rows = response.data.values || [];
-        const headers = rows[0] || [];
         
-        const nameIndex = headers.indexOf('Name');
-        const dateIndex = headers.indexOf('Date');
-        const timeIndex = headers.indexOf('Time');
-        const serviceIndex = headers.indexOf('Service');
+        let formResponses = [];
+        try {
+          const formResponsesData = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'Form Responses',
+          });
+          formResponses = formResponsesData.data.values || [];
+        } catch (err) {
+          console.log('No Form Responses sheet found or empty, continuing with Available_Times only');
+        }
         
-        const events = rows.slice(1).map(row => {
-          const date = row[dateIndex];
-          const time = row[timeIndex];
-          const name = row[nameIndex];
-          const service = row[serviceIndex];
+        // Use booked slots from Available_Times
+        const rows = availableTimes.data.values.slice(1);
+        const bookedSlots = rows.filter(row => row[3] === 'Booked');
+        
+        const events = bookedSlots.map(row => {
+          const date = row[0];
+          const time = row[1];
+          const barber = row[2];
           
           const startDate = new Date(`${date} ${time}`);
           const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
           
           return {
-            title: `${name}`,
+            title: `Booked - ${barber}`,
             start: startDate.toISOString(),
             end: endDate.toISOString(),
             extendedProps: {
-              service: service
+              barber: barber
             }
           };
         });
@@ -288,15 +324,54 @@ exports.handler = async function(event, context) {
       const auth = await loadCredentials();
       const sheets = google.sheets({ version: 'v4', auth });
       
-      // Add booking to sheet
-      await sheets.spreadsheets.values.append({
+      // Update the Available_Times to mark the slot as booked
+      const timesResponse = await sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: 'Form Responses',
+        range: 'Available_Times',
+      });
+      
+      const rows = timesResponse.data.values.slice(1);
+      const rowIndex = rows.findIndex(row => 
+        row[0] === date && 
+        row[1] === time && 
+        row[2] === barber &&
+        row[3] === 'Available'
+      );
+      
+      if (rowIndex === -1) {
+        return {
+          statusCode: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          },
+          body: JSON.stringify({ error: 'Time slot no longer available' })
+        };
+      }
+      
+      // Mark as booked (update status column)
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `Available_Times!D${rowIndex + 2}`, // +2 because we have a header row and slice(1)
         valueInputOption: 'USER_ENTERED',
         resource: {
-          values: [[name, email, phone, date, time, barber, service]]
+          values: [['Booked']]
         }
       });
+      
+      // Also add to Form Responses if it exists
+      try {
+        await sheets.spreadsheets.values.append({
+          spreadsheetId: SPREADSHEET_ID,
+          range: 'Form Responses',
+          valueInputOption: 'USER_ENTERED',
+          resource: {
+            values: [[name, email, phone, date, time, barber, service]]
+          }
+        });
+      } catch (err) {
+        console.log('No Form Responses sheet found, skipping append');
+      }
 
       // Send confirmation emails
       if (email) {
