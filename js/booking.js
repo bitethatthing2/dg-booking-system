@@ -11,6 +11,20 @@ const bookingForm = document.getElementById('bookingForm');
 const messageDiv = document.getElementById('message');
 const serviceOptions = document.querySelectorAll('.service-option');
 
+// Add special days message
+const addSpecialDaysMessage = () => {
+  const specialDaysMessageDiv = document.createElement('div');
+  specialDaysMessageDiv.className = 'special-days-message';
+  specialDaysMessageDiv.innerHTML = `
+    <p class="note"><strong>Note:</strong> We are closed Sundays and Wednesdays. 
+    For appointments on these days, please contact Mike directly at <a href="tel:5034008151">(503) 400-8151</a>.</p>
+  `;
+  
+  // Add after date selection in Step 3
+  const dateGroup = document.querySelector('.form-section[data-step="3"] .form-group:first-child');
+  dateGroup.appendChild(specialDaysMessageDiv);
+};
+
 // Helper function to handle API errors
 async function handleApiResponse(response) {
   if (!response.ok) {
@@ -41,6 +55,9 @@ serviceOptions.forEach(option => {
 // Load barbers when page loads
 window.addEventListener('DOMContentLoaded', async () => {
   try {
+    // Add special days message
+    addSpecialDaysMessage();
+    
     const response = await fetch(`${API_BASE_URL}/available-barbers`, {
       headers: {
         'Accept': 'application/json',
@@ -112,6 +129,7 @@ dateSelect.addEventListener('change', async () => {
   const selectedDate = dateSelect.value;
   const selectedBarber = barberSelect.value;
   
+  // Reset time select
   timeSelect.innerHTML = '<option value="">Loading times...</option>';
   
   if (!selectedDate) {
@@ -120,7 +138,9 @@ dateSelect.addEventListener('change', async () => {
   }
   
   try {
+    // Ensure the date is properly encoded for the URL
     const encodedDate = encodeURIComponent(selectedDate);
+    
     const url = selectedBarber
       ? `${API_BASE_URL}/available-times/${encodedDate}/${selectedBarber}`
       : `${API_BASE_URL}/available-times/${encodedDate}`;
@@ -131,26 +151,34 @@ dateSelect.addEventListener('change', async () => {
         'Content-Type': 'application/json'
       }
     });
+    if (!response.ok) throw new Error('Failed to fetch times');
     
-    const data = await handleApiResponse(response);
+    const data = await response.json();
     
+    // Clear loading option
     timeSelect.innerHTML = '<option value="">Select a time</option>';
     
-    if (data.availableTimes && data.availableTimes.length > 0) {
-      data.availableTimes.forEach(timeSlot => {
-        const option = document.createElement('option');
-        option.value = timeSlot.time;
-        option.textContent = `${timeSlot.time} - ${timeSlot.barber}`;
-        timeSelect.appendChild(option);
-      });
-    } else {
+    // Check if there's a special message (for Sundays and Wednesdays)
+    if (data.message) {
+      showMessage(data.message, 'warning');
+      timeSelect.innerHTML = '<option value="">No times available</option>';
+      return;
+    }
+    
+    // Add time options
+    data.availableTimes.forEach(timeSlot => {
+      const option = document.createElement('option');
+      option.value = timeSlot.time;
+      option.textContent = `${timeSlot.time} - ${timeSlot.barber}`;
+      timeSelect.appendChild(option);
+    });
+    
+    if (data.availableTimes.length === 0) {
       timeSelect.innerHTML = '<option value="">No available times</option>';
-      showMessage('No available times for the selected date.', 'warning');
     }
   } catch (error) {
     console.error('Error loading times:', error);
     timeSelect.innerHTML = '<option value="">Error loading times</option>';
-    showMessage(error.message || 'Error loading times. Please try again.', 'error');
   }
 });
 

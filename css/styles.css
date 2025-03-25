@@ -273,6 +273,31 @@ button {
   border: 1px solid #ffeeba;
 }
 
+/* Special Days Message */
+.special-days-message {
+  margin-top: 15px;
+  padding: 12px;
+  background-color: #f8f9fa;
+  border-left: 3px solid #ffc107;
+  border-radius: 4px;
+}
+
+.special-days-message .note {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.special-days-message a {
+  color: #007bff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.special-days-message a:hover {
+  text-decoration: underline;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .container {

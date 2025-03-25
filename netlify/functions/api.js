@@ -567,7 +567,15 @@ async function getAvailableDates(barber) {
       return dateA - dateB;
     });
     
-    console.log(`Found ${dates.length} available dates`);
+    // Filter out Sundays (0) and Wednesdays (3)
+    dates = dates.filter(dateStr => {
+      const date = new Date(dateStr);
+      const day = date.getDay();
+      // 0 is Sunday, 3 is Wednesday
+      return day !== 0 && day !== 3;
+    });
+    
+    console.log(`Found ${dates.length} available dates (excluding Sundays and Wednesdays)`);
     return dates;
   } catch (error) {
     console.error('Error getting dates:', error);
@@ -618,6 +626,19 @@ async function getAvailableTimes(date, barber) {
       return to24h(a.time) - to24h(b.time);
     });
     
+    // Filter times outside of working hours (10am-7pm)
+    const filteredByHours = availableTimes.filter(timeObj => {
+      const [timeStr, period] = timeObj.time.split(' ');
+      let [hours, minutes] = timeStr.split(':').map(Number);
+      
+      // Convert to 24-hour format
+      if (period === 'PM' && hours !== 12) hours += 12;
+      if (period === 'AM' && hours === 12) hours = 0;
+      
+      // Working hours: 10am (10) to 7pm (19)
+      return hours >= 10 && hours < 19;
+    });
+    
     // Apply 2-hour booking window restriction
     const now = new Date();
     const currentDate = now.toLocaleDateString('en-US', { 
@@ -649,7 +670,7 @@ async function getAvailableTimes(date, barber) {
       console.log(`Minimum booking time in minutes: ${minimumBookingTimeInMinutes}`);
       
       // Filter out times less than 2 hours from now
-      const filteredTimes = availableTimes.filter(timeObj => {
+      const filteredTimes = filteredByHours.filter(timeObj => {
         const [timeStr, period] = timeObj.time.split(' ');
         let [hours, minutes] = timeStr.split(':').map(Number);
         
@@ -668,12 +689,12 @@ async function getAvailableTimes(date, barber) {
         return isAvailable;
       });
       
-      console.log(`Found ${filteredTimes.length} available times after applying 2-hour booking window`);
+      console.log(`Found ${filteredTimes.length} available times after applying 2-hour booking window and 10am-7pm hours`);
       return filteredTimes;
     }
     
-    console.log(`Found ${availableTimes.length} available times for ${date}`);
-    return availableTimes;
+    console.log(`Found ${filteredByHours.length} available times for ${date} between 10am and 7pm`);
+    return filteredByHours;
   } catch (error) {
     console.error('Error getting times:', error);
     return [
@@ -758,6 +779,29 @@ exports.handler = async function(event, context) {
             body: JSON.stringify({ 
               error: 'Date is required',
               availableTimes: [] 
+            })
+          };
+        }
+        
+        // Check if the date is Sunday or Wednesday
+        const dateParts = date.split('/');
+        const checkDate = new Date(
+          parseInt(dateParts[2]), 
+          parseInt(dateParts[0]) - 1, 
+          parseInt(dateParts[1])
+        );
+        const dayOfWeek = checkDate.getDay();
+        
+        // 0 is Sunday, 3 is Wednesday
+        if (dayOfWeek === 0 || dayOfWeek === 3) {
+          return {
+            statusCode: 200,
+            headers: HEADERS,
+            body: JSON.stringify({
+              availableTimes: [],
+              date,
+              barber: barber || 'Any',
+              message: "We're closed on Sundays and Wednesdays. Please contact Mike at (503) 400-8151 for special arrangements."
             })
           };
         }
