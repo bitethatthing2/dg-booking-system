@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -186,7 +186,9 @@
   
   <script>
     // API base URL - update with your server address
-    const API_BASE_URL = '/.netlify/functions/api';
+    const API_BASE_URL = window.location.hostname === 'localhost' 
+      ? 'http://localhost:8888/.netlify/functions/api'
+      : '/.netlify/functions/api';
     
     // DOM elements
     const barberSelect = document.getElementById('barber');
@@ -195,6 +197,23 @@
     const bookingForm = document.getElementById('bookingForm');
     const messageDiv = document.getElementById('message');
     const serviceOptions = document.querySelectorAll('.service-option');
+    
+    // Helper function to handle API errors
+    async function handleApiResponse(response) {
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        try {
+          const errorJson = JSON.parse(errorText);
+          throw new Error(errorJson.error || errorJson.message || 'API request failed');
+        } catch (e) {
+          if (e instanceof SyntaxError) {
+            throw new Error(`API request failed: ${errorText}`);
+          }
+          throw e;
+        }
+      }
+      return response.json();
+    }
     
     // Service selection handling
     serviceOptions.forEach(option => {
@@ -218,23 +237,28 @@
             'Content-Type': 'application/json'
           }
         });
-        if (!response.ok) throw new Error('Failed to fetch barbers');
         
-        const data = await response.json();
+        const data = await handleApiResponse(response);
         
         // Clear loading option
         barberSelect.innerHTML = '<option value="">Select a barber</option>';
         
         // Add barber options
-        data.barbers.forEach(barber => {
-          const option = document.createElement('option');
-          option.value = barber;
-          option.textContent = barber;
-          barberSelect.appendChild(option);
-        });
+        if (Array.isArray(data.barbers) && data.barbers.length > 0) {
+          data.barbers.forEach(barber => {
+            const option = document.createElement('option');
+            option.value = barber;
+            option.textContent = barber;
+            barberSelect.appendChild(option);
+          });
+        } else {
+          barberSelect.innerHTML = '<option value="">No barbers available</option>';
+          showMessage('No barbers are currently available. Please try again later.', 'warning');
+        }
       } catch (error) {
         console.error('Error loading barbers:', error);
-        showMessage('Error loading barbers. Please refresh the page.', 'error');
+        barberSelect.innerHTML = '<option value="">Error loading barbers</option>';
+        showMessage(error.message || 'Error loading barbers. Please refresh the page.', 'error');
       }
     });
     
