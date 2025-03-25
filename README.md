@@ -4,45 +4,52 @@ Online booking system for Distinguished Gentleman Barber.
 
 ## Features
 
-- Online appointment booking
-- Email confirmations for clients
-- Barber notifications for new bookings
-- Calendar view for appointments
-- Mobile-friendly interface
+* Online appointment booking
+* Email confirmations for clients
+* Barber notifications for new bookings
+* Calendar view for appointments
+* Mobile-friendly interface
 
-## Setup
+## API Endpoints
 
-1. Install dependencies:
-```bash
-npm install
-```
+The booking system provides the following API endpoints:
 
-2. Create a `.env` file with the following variables:
-```
-EMAIL_USER=your-email@gmail.com
-EMAIL_PASS=your-app-specific-password
-SPREADSHEET_ID=your-google-sheets-id
-```
+* `/.netlify/functions/api/available-barbers` - Get list of available barbers
+* `/.netlify/functions/api/available-dates` - Get list of available dates
+* `/.netlify/functions/api/available-times/:date/:barber?` - Get available times for a specific date (barber is optional)
+* `/.netlify/functions/api/submit-booking` - Submit a new booking (POST)
+* `/.netlify/functions/api/calendar-events` - Get calendar events for display
 
-3. Set up Google Sheets API:
-- Place your `credentials.json` in the root directory
-- Run the app once to generate `token.json`
+## Environment Setup
 
-## Development
+### Required Environment Variables:
 
-Run both servers in development:
-```bash
-npm run dev
-```
+* `GOOGLE_CREDENTIALS` - The JSON credentials for Google Sheets access
+* `SPREADSHEET_ID` - The ID of your booking spreadsheet
+* `EMAIL_USER` - Gmail address for sending confirmations
+* `EMAIL_PASS` - Gmail app-specific password
 
-Or run them separately:
-```bash
-# API Server
-npm start
+## Google Sheets Structure
 
-# Form Server
-npm run serve
-```
+The system works with a Google Sheet that has the following structure:
+
+### Available_Times Sheet
+Contains all appointment slots with:
+* Column A: Date
+* Column B: Time
+* Column C: Barber
+* Column D: Status (Available/Booked)
+* Column E: Row number (optional)
+
+### Form Responses Sheet (Optional)
+Stores detailed booking information:
+* Client Name
+* Email
+* Phone
+* Date
+* Time
+* Barber
+* Service
 
 ## Deployment
 
@@ -52,12 +59,6 @@ This project is configured for Netlify deployment:
 2. Add environment variables in Netlify settings
 3. Deploy!
 
-## Environment Variables
-
-- `EMAIL_USER`: Gmail address for sending confirmations
-- `EMAIL_PASS`: Gmail app-specific password
-- `SPREADSHEET_ID`: Google Sheets ID for storing bookings
-
 ## License
 
-Private - All Rights Reserved 
+Private - All Rights Reserved
