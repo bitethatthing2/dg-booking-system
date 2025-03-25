@@ -9,8 +9,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Add a simple test endpoint for debugging
-app.get('/test', (req, res) => {
+// Create a router instead of using app directly
+const router = express.Router();
+
+// Move all routes to use router instead of app
+router.get('/test', (req, res) => {
   console.log('Test endpoint called');
   res.json({ 
     success: true, 
@@ -43,8 +46,8 @@ async function loadCredentials() {
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 
-// API Routes
-app.get('/available-barbers', async (req, res) => {
+// API Routes - using router instead of app
+router.get('/available-barbers', async (req, res) => {
   try {
     console.log('Fetching available barbers...');
     console.log('Loading credentials...');
@@ -76,7 +79,7 @@ app.get('/available-barbers', async (req, res) => {
   }
 });
 
-app.get('/available-dates/:barber?', async (req, res) => {
+router.get('/available-dates/:barber?', async (req, res) => {
   try {
     const auth = await loadCredentials();
     const sheets = google.sheets({ version: 'v4', auth });
@@ -94,7 +97,7 @@ app.get('/available-dates/:barber?', async (req, res) => {
   }
 });
 
-app.get('/available-times/:date/:barber?', async (req, res) => {
+router.get('/available-times/:date/:barber?', async (req, res) => {
   try {
     const { date, barber } = req.params;
     const auth = await loadCredentials();
@@ -124,7 +127,7 @@ app.get('/available-times/:date/:barber?', async (req, res) => {
   }
 });
 
-app.post('/submit-booking', async (req, res) => {
+router.post('/submit-booking', async (req, res) => {
   try {
     const { barber, service, date, time, name, email, phone } = req.body;
     
@@ -210,7 +213,7 @@ Booking Details:
   }
 });
 
-app.get('/calendar-events', async (req, res) => {
+router.get('/calendar-events', async (req, res) => {
   try {
     const auth = await loadCredentials();
     const sheets = google.sheets({ version: 'v4', auth });
@@ -254,5 +257,8 @@ app.get('/calendar-events', async (req, res) => {
   }
 });
 
-// Export the serverless function
-exports.handler = serverless(app);
+// Mount the router on the app
+app.use('/.netlify/functions/api', router);
+
+// Export the serverless handler
+module.exports.handler = serverless(app);
