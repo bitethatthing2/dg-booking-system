@@ -1,0 +1,14 @@
+{
+  "name": "dg-booking-api-functions",
+  "version": "1.0.0",
+  "description": "API functions for Distinguished Gentleman Booking System",
+  "main": "api.js",
+  "dependencies": {
+    "express": "^4.18.2",
+    "serverless-http": "^3.1.1",
+    "cors": "^2.8.5",
+    "googleapis": "^118.0.0",
+    "nodemailer": "^6.9.1",
+    "dotenv": "^16.0.3"
+  }
+} 
