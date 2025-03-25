@@ -68,7 +68,7 @@ async function getGoogleAuth() {
           credentials.private_key,
           [
             'https://www.googleapis.com/auth/spreadsheets',
-            'https://www.googleapis.com/auth/calendar'
+            'https://www.googleapis.com/auth/calendar.events' // Limited scope for calendar
           ]
         );
         
@@ -95,7 +95,7 @@ async function getGoogleAuth() {
       credentials.private_key,
       [
         'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/calendar'
+        'https://www.googleapis.com/auth/calendar.events' // Limited scope for calendar
       ]
     );
     
@@ -425,16 +425,20 @@ async function addToCalendar(booking) {
       hour = 0;
     }
     
-    // Get appointment duration based on service type (in minutes)
+    // Get appointment duration based on service type by checking partial matches
+    const serviceType = booking.service.toLowerCase();
     let appointmentDuration = 60; // Default 60 minutes
-    if (booking.service.toLowerCase().includes('haircut') && booking.service.toLowerCase().includes('beard')) {
+    
+    if (serviceType.includes('haircut') && serviceType.includes('beard')) {
       appointmentDuration = 60; // Haircut & Beard Trim
-    } else if (booking.service.toLowerCase().includes('haircut')) {
+    } else if (serviceType.includes('haircut')) {
       appointmentDuration = 45; // Regular Haircut
-    } else if (booking.service.toLowerCase().includes('beard')) {
+    } else if (serviceType.includes('beard')) {
       appointmentDuration = 30; // Beard Trim
-    } else if (booking.service.toLowerCase().includes('shave')) {
+    } else if (serviceType.includes('shave')) {
       appointmentDuration = 30; // Straight Razor Shave
+    } else if (serviceType.includes('enhancement')) {
+      appointmentDuration = serviceType.includes('temporary') ? 15 : 45;
     }
     
     // Create start and end time based on service duration
@@ -442,24 +446,20 @@ async function addToCalendar(booking) {
     const serviceEndTime = new Date(startTime.getTime() + (appointmentDuration * 60 * 1000));
     
     console.log(`Creating calendar event for ${booking.date} at ${booking.time}`);
-    console.log(`Service duration: ${appointmentDuration} minutes`);
-    console.log(`Appointment time: ${startTime.toISOString()} to ${serviceEndTime.toISOString()}`);
+    console.log(`Service: ${booking.service}, duration: ${appointmentDuration} minutes`);
     
     // Determine color based on service type
-    // Google Calendar color IDs: 
-    // 1 = Lavender, 2 = Sage, 3 = Grape, 4 = Flamingo, 5 = Banana, 
-    // 6 = Tangerine, 7 = Peacock, 8 = Graphite, 9 = Blueberry, 10 = Basil, 11 = Tomato
     let colorId = '1'; // Default: Lavender
     
-    if (booking.service.toLowerCase().includes('haircut') && booking.service.toLowerCase().includes('beard')) {
+    if (serviceType.includes('haircut') && serviceType.includes('beard')) {
       colorId = '6'; // Orange for Haircut & Beard
-    } else if (booking.service.toLowerCase().includes('haircut')) {
+    } else if (serviceType.includes('haircut')) {
       colorId = '9'; // Blue for Haircuts
-    } else if (booking.service.toLowerCase().includes('beard')) {
+    } else if (serviceType.includes('beard')) {
       colorId = '10'; // Green for Beard Trims
-    } else if (booking.service.toLowerCase().includes('shave')) {
+    } else if (serviceType.includes('shave')) {
       colorId = '7'; // Teal for Shaves
-    } else if (booking.service.toLowerCase().includes('enhancement')) {
+    } else if (serviceType.includes('enhancement')) {
       colorId = '4'; // Red for Enhancements
     }
     
@@ -470,76 +470,36 @@ async function addToCalendar(booking) {
       formattedPhone = booking.phone.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
     }
     
-    // Professional HTML description for the calendar event
-    const htmlDescription = `
-      <div style="font-family: Arial, sans-serif; padding: 15px; color: #333;">
-        <h2 style="color: #1a73e8; margin-top: 0;">Appointment Details</h2>
-        <hr style="border: 1px solid #eee;">
-        <p><strong>Client:</strong> ${booking.name}</p>
-        <p><strong>Service:</strong> ${booking.service}</p>
-        <p><strong>Barber:</strong> ${booking.barber}</p>
-        <p><strong>Duration:</strong> ${appointmentDuration} minutes</p>
-        <hr style="border: 1px solid #eee;">
-        <h3 style="color: #1a73e8;">Contact Information</h3>
-        <p><strong>Phone:</strong> ${formattedPhone}</p>
-        <p><strong>Email:</strong> ${booking.email || 'No email provided'}</p>
-        <hr style="border: 1px solid #eee;">
-        <p style="font-size: 0.8em; color: #666;">Appointment booked through DG Barbers online booking system</p>
-      </div>
-    `;
-    
-    // Plain text version for notifications
-    const plainDescription = `
-Appointment Details
-------------------
+    // Simple clean description for the calendar event
+    const eventDescription = `
+Appointment: ${booking.service}
 Client: ${booking.name}
-Service: ${booking.service}
-Barber: ${booking.barber}
-Duration: ${appointmentDuration} minutes
-
-Contact Information
-------------------
 Phone: ${formattedPhone}
-Email: ${booking.email || 'No email provided'}
-
-Appointment booked through DG Barbers online booking system
-    `;
+Email: ${booking.email || 'None provided'}
+Duration: ${appointmentDuration} minutes
+Barber: ${booking.barber}
+    `.trim();
     
-    // Create calendar event
+    // Create calendar event with just the essentials
     const event = {
       summary: `${booking.service} - ${booking.name}`,
-      description: plainDescription,
-      htmlDescription: htmlDescription, // This only works on some calendar clients
+      description: eventDescription,
       location: 'Distinguished Gentleman Barbers',
       start: {
         dateTime: startTime.toISOString(),
-        timeZone: 'America/Los_Angeles'
+        timeZone: CONFIG.timeZone
       },
       end: {
         dateTime: serviceEndTime.toISOString(),
-        timeZone: 'America/Los_Angeles'
+        timeZone: CONFIG.timeZone
       },
       colorId: colorId,
-      // Add extended properties to store additional metadata
-      extendedProperties: {
-        private: {
-          appointmentTime: startTime.toISOString(),
-          actualDuration: appointmentDuration.toString(),
-          bookedThrough: 'online_system',
-          clientPhone: booking.phone || '',
-          clientEmail: booking.email || '',
-          minimumBookingWindow: '120' // 2 hours in minutes
-        }
-      },
-      // Enhanced reminders - email 24h and 1h before, popup notifications 1 day, 2 hours and 15 min before
+      // Simplified reminders - only what's actually needed
       reminders: {
         useDefault: false,
         overrides: [
-          { method: 'email', minutes: 24 * 60 }, // 24 hours before
-          { method: 'email', minutes: 60 },      // 1 hour before
-          { method: 'popup', minutes: 24 * 60 }, // 24 hours before
-          { method: 'popup', minutes: 120 },     // 2 hours before
-          { method: 'popup', minutes: 15 }       // 15 minutes before
+          { method: 'popup', minutes: 60 },  // 1 hour before
+          { method: 'popup', minutes: 15 }   // 15 minutes before
         ]
       }
     };
@@ -548,7 +508,7 @@ Appointment booked through DG Barbers online booking system
     const response = await calendar.events.insert({
       calendarId: CONFIG.calendarId,
       resource: event,
-      sendUpdates: 'all' // Send updates to all attendees (if any are added later)
+      sendUpdates: 'none' // Don't send calendar updates
     });
     
     console.log('Calendar event created:', response.data.htmlLink);
