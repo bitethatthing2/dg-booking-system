@@ -65,9 +65,49 @@ serviceOptions.forEach(option => {
   });
 });
 
+// Add event listeners to clear error messages when fields are filled
+function setupErrorClearingListeners() {
+  // Clear messages when barber is selected
+  barberSelect.addEventListener('change', () => {
+    if (barberSelect.value) {
+      hideMessage();
+    }
+  });
+  
+  // Clear messages when service is selected
+  serviceOptions.forEach(option => {
+    option.addEventListener('click', () => {
+      hideMessage();
+    });
+  });
+  
+  // Clear messages when date or time is selected
+  dateSelect.addEventListener('change', () => {
+    if (dateSelect.value) {
+      hideMessage();
+    }
+  });
+  
+  timeSelect.addEventListener('change', () => {
+    if (timeSelect.value) {
+      hideMessage();
+    }
+  });
+  
+  // Clear messages when user information is entered
+  document.getElementById('name').addEventListener('input', function() {
+    if (this.value.trim()) {
+      hideMessage();
+    }
+  });
+}
+
 // Load barbers when page loads
 window.addEventListener('DOMContentLoaded', async () => {
   try {
+    // Setup event listeners to clear error messages
+    setupErrorClearingListeners();
+    
     const response = await fetch(`${API_BASE_URL}/available-barbers`, {
       headers: {
         'Accept': 'application/json',
@@ -280,6 +320,10 @@ function updateProgressBar(currentStep) {
 }
 
 function showStep(stepNumber) {
+  // Hide any existing error messages when changing steps
+  hideMessage();
+  
+  // Hide all sections and show only the current one
   document.querySelectorAll('.form-section').forEach(section => {
     section.classList.remove('active');
   });
@@ -290,6 +334,13 @@ function showStep(stepNumber) {
   if (stepNumber === 3) {
     addSpecialDaysMessage();
   }
+}
+
+// Helper function to hide message
+function hideMessage() {
+  messageDiv.textContent = '';
+  messageDiv.className = '';
+  messageDiv.style.display = 'none';
 }
 
 function validateStep(step) {
@@ -333,6 +384,8 @@ document.querySelectorAll('.btn-next').forEach(button => {
 document.querySelectorAll('.btn-prev').forEach(button => {
   button.addEventListener('click', function() {
     const prevStep = parseInt(this.dataset.prev);
+    // No validation needed when going back, just hide any messages
+    hideMessage();
     showStep(prevStep);
   });
 }); 
