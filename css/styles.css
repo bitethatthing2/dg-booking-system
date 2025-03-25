@@ -298,6 +298,33 @@ button {
   text-decoration: underline;
 }
 
+/* Business Hours Notice */
+.business-hours-notice {
+  margin: 0 auto 25px;
+  padding: 15px;
+  background-color: #e9f7fe;
+  border: 1px solid #b3e5fc;
+  border-radius: 6px;
+  text-align: center;
+  max-width: 90%;
+}
+
+.business-hours-notice p {
+  margin: 5px 0;
+  font-size: 15px;
+  color: #0277bd;
+}
+
+.business-hours-notice a {
+  color: #01579b;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.business-hours-notice a:hover {
+  text-decoration: underline;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .container {

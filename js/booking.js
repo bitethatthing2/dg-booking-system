@@ -13,6 +13,7 @@ const serviceOptions = document.querySelectorAll('.service-option');
 
 // Add special days message
 const addSpecialDaysMessage = () => {
+  // Create message element
   const specialDaysMessageDiv = document.createElement('div');
   specialDaysMessageDiv.className = 'special-days-message';
   specialDaysMessageDiv.innerHTML = `
@@ -20,13 +21,36 @@ const addSpecialDaysMessage = () => {
     For appointments on these days, please contact Mike directly at <a href="tel:5034008151">(503) 400-8151</a>.</p>
   `;
   
-  // Add after date selection in Step 3
-  const dateGroup = document.querySelector('.form-section[data-step="3"] .form-group:first-child');
-  if (dateGroup) {
-    dateGroup.appendChild(specialDaysMessageDiv);
-  } else {
-    console.warn('Date group element not found for special days message');
-  }
+  // Wait for DOM to be fully loaded
+  setTimeout(() => {
+    // Try finding the element in Step 3
+    const dateGroup = document.querySelector('.form-section[data-step="3"] .form-group:first-child');
+    
+    if (dateGroup) {
+      // Found the element, append the message
+      dateGroup.appendChild(specialDaysMessageDiv);
+    } else {
+      // Alternative: add it to the first form section that's visible
+      const visibleSection = document.querySelector('.form-section.active');
+      if (visibleSection) {
+        const formGroup = visibleSection.querySelector('.form-group');
+        if (formGroup) {
+          formGroup.appendChild(specialDaysMessageDiv.cloneNode(true));
+        }
+      }
+      
+      // Also add it to step 3 for when it becomes visible later
+      const step3 = document.querySelector('.form-section[data-step="3"]');
+      if (step3) {
+        const step3Group = step3.querySelector('.form-group');
+        if (step3Group) {
+          step3Group.appendChild(specialDaysMessageDiv);
+        }
+      }
+      
+      console.log("Added special days message to alternative location");
+    }
+  }, 500); // Short delay to ensure DOM is ready
 };
 
 // Helper function to handle API errors
