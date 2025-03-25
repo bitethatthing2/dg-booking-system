@@ -1,0 +1,1 @@
+const express = require('express'); const serverless = require('serverless-http'); const cors = require('cors'); const app = express(); app.use(cors()); app.use(express.json()); const router = express.Router(); router.get('/available-barbers', (req, res) => { res.json({ barbers: ['Test Barber 1', 'Test Barber 2']}); }); app.use('/', router); exports.handler = serverless(app);
