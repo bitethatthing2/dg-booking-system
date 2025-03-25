@@ -9,6 +9,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Add a simple test endpoint for debugging
+app.get('/test', (req, res) => {
+  console.log('Test endpoint called');
+  res.json({ 
+    success: true, 
+    message: 'API is working!',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Email configuration
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -31,6 +41,7 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 // API Routes
 app.get('/available-barbers', async (req, res) => {
   try {
+    console.log('Fetching available barbers...');
     const auth = await loadCredentials();
     const sheets = google.sheets({ version: 'v4', auth });
     
@@ -40,7 +51,8 @@ app.get('/available-barbers', async (req, res) => {
     });
 
     const barbers = response.data.values.slice(1).map(row => row[0]);
-    res.json(barbers);
+    console.log('Barbers found:', barbers);
+    res.json({ barbers });
   } catch (error) {
     console.error('Error fetching barbers:', error);
     res.status(500).json({ error: 'Failed to fetch barbers' });
@@ -58,7 +70,7 @@ app.get('/available-dates/:barber?', async (req, res) => {
     });
 
     let dates = response.data.values.slice(1).map(row => row[0]);
-    res.json(dates);
+    res.json({ dates });
   } catch (error) {
     console.error('Error fetching dates:', error);
     res.status(500).json({ error: 'Failed to fetch dates' });
@@ -80,11 +92,15 @@ app.get('/available-times/:date/:barber?', async (req, res) => {
     const dateIndex = rows.findIndex(row => row[0] === date);
     
     if (dateIndex === -1) {
-      return res.json([]);
+      return res.json({ availableTimes: [] });
     }
 
     const times = rows[dateIndex].slice(1).filter(time => time !== '');
-    res.json(times);
+    const availableTimes = times.map(time => ({
+      time,
+      barber: barber || 'Any barber'
+    }));
+    res.json({ availableTimes });
   } catch (error) {
     console.error('Error fetching times:', error);
     res.status(500).json({ error: 'Failed to fetch times' });
@@ -115,111 +131,3 @@ app.post('/submit-booking', async (req, res) => {
     // Send confirmation emails
     if (email) {
       const emailBody = `
-Dear ${name},
-
-Your appointment has been confirmed!
-
-Details:
-- Date: ${date}
-- Time: ${time}
-- Barber: ${barber}
-- Service: ${service}
-
-Need to reschedule or cancel? Please call (503) 400-8151.
-
-Download our app at dgbarbers.com
-iOS users: Click share button and "Add to Home Screen", then enable notifications
-Android users: Install via main menu "Android Installation"
-
-Thank you for choosing our service!
-
-Michael Kahler, Barber
-Distinguished Gentleman
-      `;
-
-      const emailOptions = {
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'Appointment Confirmation',
-        text: emailBody,
-        html: emailBody.replace(/\n/g, '<br>')
-      };
-
-      await transporter.sendMail(emailOptions);
-
-      // Send notification to barber
-      const barberNotificationBody = `
-New Booking Alert!
-
-Booking Details:
-- Client: ${name}
-- Date: ${date}
-- Time: ${time}
-- Service: ${service}
-- Client Phone: ${phone}
-- Client Email: ${email}
-`;
-
-      const barberEmailOptions = {
-        from: process.env.EMAIL_USER,
-        to: 'gthabarber1@gmail.com',
-        subject: 'New Booking Alert',
-        text: barberNotificationBody
-      };
-
-      await transporter.sendMail(barberEmailOptions);
-    }
-
-    res.json({ message: 'Booking submitted successfully' });
-  } catch (error) {
-    console.error('Error submitting booking:', error);
-    res.status(500).json({ error: 'Failed to submit booking' });
-  }
-});
-
-app.get('/calendar-events', async (req, res) => {
-  try {
-    const auth = await loadCredentials();
-    const sheets = google.sheets({ version: 'v4', auth });
-    
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: 'Form Responses',
-    });
-
-    const rows = response.data.values || [];
-    const headers = rows[0];
-    
-    const nameIndex = headers.indexOf('Name');
-    const dateIndex = headers.indexOf('Date');
-    const timeIndex = headers.indexOf('Time');
-    const serviceIndex = headers.indexOf('Service');
-    
-    const events = rows.slice(1).map(row => {
-      const date = row[dateIndex];
-      const time = row[timeIndex];
-      const name = row[nameIndex];
-      const service = row[serviceIndex];
-      
-      const startDate = new Date(`${date} ${time}`);
-      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
-      
-      return {
-        title: `${name}`,
-        start: startDate.toISOString(),
-        end: endDate.toISOString(),
-        extendedProps: {
-          service: service
-        }
-      };
-    });
-    
-    res.json(events);
-  } catch (error) {
-    console.error('Error fetching calendar events:', error);
-    res.status(500).json({ error: 'Failed to fetch calendar events' });
-  }
-});
-
-// Export the serverless function
-exports.handler = serverless(app); 
