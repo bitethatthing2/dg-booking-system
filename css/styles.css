@@ -545,4 +545,55 @@ select {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
+}
+
+/* Time slot styling enhancement */
+.time-container {
+  position: relative;
+}
+
+#time {
+  font-size: 1rem;
+  padding-left: 2.5rem;
+}
+
+.time-icon {
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #333;
+  z-index: 10;
+}
+
+/* Date option styling */
+optgroup {
+  font-weight: bold;
+  font-size: 1.1em;
+  background-color: #f5f5f5;
+}
+
+select option {
+  padding: 8px 10px;
+  font-size: 1rem;
+}
+
+/* Time periods */
+optgroup[label*="Morning"] {
+  color: #FF9800;
+  border-left: 4px solid #FF9800;
+  padding-left: 10px !important;
+}
+
+optgroup[label*="Afternoon"] {
+  color: #03A9F4;
+  border-left: 4px solid #03A9F4;
+  padding-left: 10px !important;
+}
+
+optgroup[label*="Evening"] {
+  color: #673AB7;
+  border-left: 4px solid #673AB7;
+  padding-left: 10px !important;
 } 

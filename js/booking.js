@@ -208,7 +208,10 @@ barberSelect.addEventListener('change', async () => {
           datesByMonth[monthYear] = [];
         }
         
-        datesByMonth[monthYear].push(date);
+        datesByMonth[monthYear].push({
+          date: date,
+          dateObj: dateObj
+        });
       });
       
       // Create option groups by month
@@ -216,15 +219,50 @@ barberSelect.addEventListener('change', async () => {
         const optgroup = document.createElement('optgroup');
         optgroup.label = monthYear;
         
-        datesByMonth[monthYear].forEach(date => {
+        // Sort dates in chronological order
+        datesByMonth[monthYear].sort((a, b) => a.dateObj - b.dateObj);
+        
+        datesByMonth[monthYear].forEach(dateInfo => {
           const option = document.createElement('option');
-          option.value = date;
-          option.textContent = formatDate(date);
+          option.value = dateInfo.date;
+          
+          // Get day of week for color coding
+          const dayOfWeek = dateInfo.dateObj.getDay();
+          const dayName = dateInfo.dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+          
+          // Color code by day of week
+          let dayClass = '';
+          switch(dayOfWeek) {
+            case 1: dayClass = 'monday'; break;    // Monday
+            case 2: dayClass = 'tuesday'; break;   // Tuesday
+            case 4: dayClass = 'thursday'; break;  // Thursday
+            case 5: dayClass = 'friday'; break;    // Friday
+            case 6: dayClass = 'saturday'; break;  // Saturday
+            default: dayClass = 'other';
+          }
+          
+          const formattedDate = formatDate(dateInfo.date);
+          option.textContent = `${dayName} - ${formattedDate}`;
+          option.dataset.day = dayClass;
           optgroup.appendChild(option);
         });
         
         dateSelect.appendChild(optgroup);
       });
+      
+      // Enable custom styling for select options
+      if (!document.getElementById('date-select-style')) {
+        const styleEl = document.createElement('style');
+        styleEl.id = 'date-select-style';
+        styleEl.textContent = `
+          option[data-day="monday"] { color: #4285F4; font-weight: bold; }
+          option[data-day="tuesday"] { color: #34A853; font-weight: bold; }
+          option[data-day="thursday"] { color: #FBBC05; font-weight: bold; }
+          option[data-day="friday"] { color: #EA4335; font-weight: bold; }
+          option[data-day="saturday"] { color: #9C27B0; font-weight: bold; }
+        `;
+        document.head.appendChild(styleEl);
+      }
     } else {
       dateSelect.innerHTML = '<option value="">No available dates</option>';
       showMessage('No available dates found for the selected barber.', 'warning');
@@ -244,9 +282,39 @@ dateSelect.addEventListener('change', async () => {
   // Reset time select
   timeSelect.innerHTML = '<option value="">Loading times...</option>';
   
+  // Add time icon container if it doesn't exist
+  let timeContainer = document.querySelector('.time-container');
+  if (!timeContainer) {
+    const timeFormGroup = document.querySelector('.form-section[data-step="3"] .form-group:nth-child(2)');
+    if (timeFormGroup) {
+      // Create container for the time select
+      timeContainer = document.createElement('div');
+      timeContainer.className = 'time-container';
+      
+      // Create icon element
+      const timeIcon = document.createElement('span');
+      timeIcon.className = 'time-icon';
+      timeIcon.innerHTML = '<i class="bi bi-clock"></i>';
+      
+      // Move the time select inside the container
+      const timeSelectOriginal = timeFormGroup.querySelector('#time');
+      timeFormGroup.removeChild(timeSelectOriginal);
+      
+      timeContainer.appendChild(timeIcon);
+      timeContainer.appendChild(timeSelectOriginal);
+      timeFormGroup.appendChild(timeContainer);
+    }
+  }
+  
   if (!selectedDate) {
     timeSelect.innerHTML = '<option value="">Select a date first</option>';
     return;
+  }
+  
+  // Update the time icon with a loading spinner
+  const timeIcon = document.querySelector('.time-icon');
+  if (timeIcon) {
+    timeIcon.innerHTML = '<i class="bi bi-arrow-repeat spin"></i>';
   }
   
   try {
@@ -274,6 +342,10 @@ dateSelect.addEventListener('change', async () => {
     if (data.message) {
       showMessage(data.message, 'warning');
       timeSelect.innerHTML = '<option value="">No times available</option>';
+      // Reset time icon
+      if (timeIcon) {
+        timeIcon.innerHTML = '<i class="bi bi-x-circle"></i>';
+      }
       return;
     }
     
@@ -309,10 +381,21 @@ dateSelect.addEventListener('change', async () => {
         const optgroup = document.createElement('optgroup');
         optgroup.label = group;
         
+        // Add icons based on time period
+        let iconClass = '';
+        if (group.includes('Morning')) {
+          iconClass = 'sunrise';
+        } else if (group.includes('Afternoon')) {
+          iconClass = 'sun';
+        } else if (group.includes('Evening')) {
+          iconClass = 'moon';
+        }
+        
         timeGroups[group].forEach(timeSlot => {
           const option = document.createElement('option');
           option.value = timeSlot.time;
           option.textContent = `${timeSlot.time} - ${timeSlot.barber}`;
+          option.dataset.icon = iconClass;
           optgroup.appendChild(option);
         });
         
@@ -322,10 +405,33 @@ dateSelect.addEventListener('change', async () => {
     
     if (data.availableTimes.length === 0) {
       timeSelect.innerHTML = '<option value="">No available times</option>';
+      if (timeIcon) {
+        timeIcon.innerHTML = '<i class="bi bi-x-circle"></i>';
+      }
+    } else {
+      // Reset time icon
+      if (timeIcon) {
+        timeIcon.innerHTML = '<i class="bi bi-clock"></i>';
+      }
     }
   } catch (error) {
     console.error('Error loading times:', error);
     timeSelect.innerHTML = '<option value="">Error loading times</option>';
+    if (timeIcon) {
+      timeIcon.innerHTML = '<i class="bi bi-exclamation-circle"></i>';
+    }
+  }
+});
+
+// Add change event for time select to update icon
+timeSelect.addEventListener('change', function() {
+  const selectedOption = this.options[this.selectedIndex];
+  const timeIcon = document.querySelector('.time-icon');
+  
+  if (timeIcon && selectedOption && selectedOption.dataset.icon) {
+    timeIcon.innerHTML = `<i class="bi bi-${selectedOption.dataset.icon}"></i>`;
+  } else if (timeIcon) {
+    timeIcon.innerHTML = '<i class="bi bi-clock"></i>';
   }
 });
 
