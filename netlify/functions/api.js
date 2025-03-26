@@ -17,7 +17,8 @@ const CONFIG = {
     start: '10:00 AM',
     end: '6:00 PM'
   },
-  businessDays: [1, 2, 4, 5, 6] // Monday, Tuesday, Thursday, Friday, Saturday (0=Sunday, 6=Saturday)
+  businessDays: [1, 2, 4, 5, 6], // Monday, Tuesday, Thursday, Friday, Saturday (0=Sunday, 6=Saturday)
+  daysToLookAhead: 365 * 2 // Show dates for 2 years ahead
 };
 
 // Debug environment variables (without exposing secrets)
@@ -571,11 +572,11 @@ async function getAvailableDates(barber) {
     const sheetData = await loadSheetData();
     if (!sheetData) {
       console.log('Using fallback date data');
-      // Generate fallback dates for 90 days
+      // Generate fallback dates for the configured days ahead
       const fallbackDates = [];
       const today = new Date();
       
-      for (let i = 0; i < 90; i++) {
+      for (let i = 0; i < CONFIG.daysToLookAhead; i++) {
         const date = new Date(today);
         date.setDate(today.getDate() + i);
         
@@ -587,6 +588,7 @@ async function getAvailableDates(barber) {
         }
       }
       
+      console.log(`Generated ${fallbackDates.length} fallback dates for the next ${CONFIG.daysToLookAhead} days`);
       return fallbackDates;
     }
     
@@ -600,11 +602,11 @@ async function getAvailableDates(barber) {
     
     // If we don't have enough dates from the sheet, generate additional dates
     const datesFromSheet = new Set(dates);
-    if (datesFromSheet.size < 90) {
+    if (datesFromSheet.size < CONFIG.daysToLookAhead) {
       const today = new Date();
       
-      // Generate dates for 90 days
-      for (let i = 0; i < 90; i++) {
+      // Generate dates for the configured days ahead
+      for (let i = 0; i < CONFIG.daysToLookAhead; i++) {
         const date = new Date(today);
         date.setDate(today.getDate() + i);
         
@@ -636,18 +638,18 @@ async function getAvailableDates(barber) {
       return CONFIG.businessDays.includes(day);
     });
     
-    // Limit to 90 days
-    dates = dates.slice(0, 90);
+    // Limit to the configured days ahead
+    dates = dates.slice(0, CONFIG.daysToLookAhead);
     
-    console.log(`Found ${dates.length} available dates (only business days: ${CONFIG.businessDays.join(', ')})`);
+    console.log(`Found ${dates.length} available dates (only business days: ${CONFIG.businessDays.join(', ')}) for up to ${CONFIG.daysToLookAhead} days ahead`);
     return dates;
   } catch (error) {
     console.error('Error getting dates:', error);
-    // Generate fallback dates for 90 days
+    // Generate fallback dates for the configured days ahead
     const fallbackDates = [];
     const today = new Date();
     
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < CONFIG.daysToLookAhead; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       
@@ -659,6 +661,7 @@ async function getAvailableDates(barber) {
       }
     }
     
+    console.log(`Generated ${fallbackDates.length} fallback dates for the next ${CONFIG.daysToLookAhead} days`);
     return fallbackDates;
   }
 }
