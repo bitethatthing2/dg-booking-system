@@ -143,6 +143,10 @@ body {
   transition: all var(--transition-speed) ease;
 }
 
+.step-circle i {
+  font-size: 18px;
+}
+
 .step-label {
   font-size: 14px;
   color: var(--text-light);
@@ -152,6 +156,7 @@ body {
 .progress-step.active .step-circle {
   background-color: var(--primary-color);
   border-color: var(--primary-color);
+  color: white;
   transform: scale(1.1);
 }
 
@@ -163,6 +168,7 @@ body {
 .progress-step.completed .step-circle {
   background-color: var(--primary-dark);
   border-color: var(--primary-dark);
+  color: white;
 }
 
 .progress-step.completed .step-label {
@@ -570,8 +576,12 @@ select {
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
-  color: #333;
+  color: var(--primary-color);
   z-index: 10;
+}
+
+.time-icon i {
+  font-size: 20px;
 }
 
 /* Date option styling */
