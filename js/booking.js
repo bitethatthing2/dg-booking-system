@@ -298,11 +298,17 @@ dateSelect.addEventListener('change', async () => {
       
       // Move the time select inside the container
       const timeSelectOriginal = timeFormGroup.querySelector('#time');
-      timeFormGroup.removeChild(timeSelectOriginal);
-      
-      timeContainer.appendChild(timeIcon);
-      timeContainer.appendChild(timeSelectOriginal);
-      timeFormGroup.appendChild(timeContainer);
+      if (timeSelectOriginal && timeSelectOriginal.parentNode === timeFormGroup) {
+        timeFormGroup.removeChild(timeSelectOriginal);
+        timeContainer.appendChild(timeIcon);
+        timeContainer.appendChild(timeSelectOriginal);
+        timeFormGroup.appendChild(timeContainer);
+      } else {
+        // If we can't find the time select as a direct child, just append the icon
+        timeContainer.appendChild(timeIcon);
+        timeContainer.appendChild(timeSelect); // Use the global timeSelect
+        timeFormGroup.appendChild(timeContainer);
+      }
     }
   }
   
