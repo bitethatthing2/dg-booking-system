@@ -717,18 +717,18 @@ async function getAvailableTimes(date, barber) {
         barber: row.barber
       }));
     
-    // Sort times chronologically
+    // Helper function to convert time string to minutes since midnight for sorting
+    const timeToMinutes = (timeStr) => {
+      const [time, period] = timeStr.split(' ');
+      let [hours, minutes] = time.split(':').map(Number);
+      if (period === 'PM' && hours !== 12) hours += 12;
+      if (period === 'AM' && hours === 12) hours = 0;
+      return hours * 60 + (minutes || 0);
+    };
+    
+    // Sort times chronologically using numerical time values
     availableTimes.sort((a, b) => {
-      // Convert to 24h format for sorting
-      const to24h = (timeStr) => {
-        const [time, period] = timeStr.split(' ');
-        let [hours, minutes] = time.split(':').map(Number);
-        if (period === 'PM' && hours !== 12) hours += 12;
-        if (period === 'AM' && hours === 12) hours = 0;
-        return hours * 60 + minutes;
-      };
-      
-      return to24h(a.time) - to24h(b.time);
+      return timeToMinutes(a.time) - timeToMinutes(b.time);
     });
     
     // Parse business hours from CONFIG for filtering
@@ -744,12 +744,8 @@ async function getAvailableTimes(date, barber) {
     
     // Filter times outside of working hours
     const filteredByHours = availableTimes.filter(timeObj => {
-      const [timeStr, period] = timeObj.time.split(' ');
-      let [hours, minutes] = timeStr.split(':').map(Number);
-      
-      // Convert to 24-hour format
-      if (period === 'PM' && hours !== 12) hours += 12;
-      if (period === 'AM' && hours === 12) hours = 0;
+      const minutes = timeToMinutes(timeObj.time);
+      const hours = Math.floor(minutes / 60);
       
       // Check if time is within business hours
       return hours >= startHour && hours < endHour;
@@ -770,6 +766,9 @@ async function getAvailableTimes(date, barber) {
     // Check if the requested date is today
     const isToday = currentDate === date;
     
+    // Final filtered times array
+    let finalTimes = filteredByHours;
+    
     // If it's today, filter out times that are less than 2 hours from now
     if (isToday) {
       console.log(`Current time: ${now.toLocaleTimeString()}, filtering times less than 2 hours from now`);
@@ -786,16 +785,8 @@ async function getAvailableTimes(date, barber) {
       console.log(`Minimum booking time in minutes: ${minimumBookingTimeInMinutes}`);
       
       // Filter out times less than 2 hours from now
-      const filteredTimes = filteredByHours.filter(timeObj => {
-        const [timeStr, period] = timeObj.time.split(' ');
-        let [hours, minutes] = timeStr.split(':').map(Number);
-        
-        // Convert to 24-hour format
-        if (period === 'PM' && hours !== 12) hours += 12;
-        if (period === 'AM' && hours === 12) hours = 0;
-        
-        // Convert appointment time to minutes since midnight
-        const appointmentTimeInMinutes = hours * 60 + minutes;
+      finalTimes = filteredByHours.filter(timeObj => {
+        const appointmentTimeInMinutes = timeToMinutes(timeObj.time);
         
         // Check if appointment is at least 2 hours from now
         const isAvailable = appointmentTimeInMinutes >= minimumBookingTimeInMinutes;
@@ -805,12 +796,15 @@ async function getAvailableTimes(date, barber) {
         return isAvailable;
       });
       
-      console.log(`Found ${filteredTimes.length} available times after applying 2-hour booking window and ${CONFIG.businessHours.start}-${CONFIG.businessHours.end} hours`);
-      return filteredTimes;
+      console.log(`Found ${finalTimes.length} available times after applying 2-hour booking window and ${CONFIG.businessHours.start}-${CONFIG.businessHours.end} hours`);
+    } else {
+      console.log(`Found ${filteredByHours.length} available times for ${date} between ${CONFIG.businessHours.start} and ${CONFIG.businessHours.end}`);
     }
     
-    console.log(`Found ${filteredByHours.length} available times for ${date} between ${CONFIG.businessHours.start} and ${CONFIG.businessHours.end}`);
-    return filteredByHours;
+    // Make sure times are in proper chronological order using numerical values
+    finalTimes.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+    
+    return finalTimes;
   } catch (error) {
     console.error('Error getting times:', error);
     // Generate fallback times based on business hours
