@@ -691,7 +691,9 @@ async function getAvailableTimes(date, barber) {
       if (endPeriod === 'PM' && endHour !== 12) endHour += 12;
       if (endPeriod === 'AM' && endHour === 12) endHour = 0;
       
-      // Generate hourly slots
+      console.log(`Business hours: ${startHour}:${startMinute || '00'} to ${endHour}:${endMinute || '00'} (hours in 24h format)`);
+      
+      // Generate hourly slots - INCLUDE the end hour (6 PM)
       for (let h = startHour; h <= endHour; h++) {
         const hour = h % 12 === 0 ? 12 : h % 12;
         const period = h < 12 ? 'AM' : 'PM';
@@ -702,6 +704,7 @@ async function getAvailableTimes(date, barber) {
       }
       
       console.log(`Generated ${fallbackTimes.length} fallback times from ${CONFIG.businessHours.start} to ${CONFIG.businessHours.end}`);
+      console.log(`Times generated: ${fallbackTimes.map(t => t.time).join(', ')}`);
       return fallbackTimes;
     }
     
@@ -741,14 +744,18 @@ async function getAvailableTimes(date, barber) {
     let [endHour, endMinute] = endTimeStr.split(':').map(Number);
     if (endPeriod === 'PM' && endHour !== 12) endHour += 12;
     if (endPeriod === 'AM' && endHour === 12) endHour = 0;
+
+    console.log(`Filtering times between ${startHour}:${startMinute || '00'} and ${endHour}:${endMinute || '00'} (hours in 24h format)`);
     
-    // Filter times outside of working hours
+    // Filter times outside of working hours - ENSURE we include exactly 6 PM (18:00)
     const filteredByHours = availableTimes.filter(timeObj => {
       const minutes = timeToMinutes(timeObj.time);
       const hours = Math.floor(minutes / 60);
       
-      // Check if time is within business hours - include the end hour (6 PM)
-      return hours >= startHour && hours <= endHour;
+      // Check if time is within business hours - include the exact end hour (6 PM / 18:00)
+      const isWithinHours = hours >= startHour && hours <= endHour;
+      console.log(`Time ${timeObj.time}: hours=${hours}, within hours=${isWithinHours}`);
+      return isWithinHours;
     });
     
     // Apply 2-hour booking window restriction
@@ -804,6 +811,9 @@ async function getAvailableTimes(date, barber) {
     // Make sure times are in proper chronological order using numerical values
     finalTimes.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
     
+    // Log the final available times to help with debugging
+    console.log(`Final available times: ${finalTimes.map(t => t.time).join(', ')}`);
+    
     return finalTimes;
   } catch (error) {
     console.error('Error getting times:', error);
@@ -826,7 +836,9 @@ async function getAvailableTimes(date, barber) {
     if (endPeriod === 'PM' && endHour !== 12) endHour += 12;
     if (endPeriod === 'AM' && endHour === 12) endHour = 0;
     
-    // Generate hourly slots
+    console.log(`Error fallback - Business hours: ${startHour}:${startMinute || '00'} to ${endHour}:${endMinute || '00'} (hours in 24h format)`);
+    
+    // Generate hourly slots - ENSURE we include 6 PM
     for (let h = startHour; h <= endHour; h++) {
       const hour = h % 12 === 0 ? 12 : h % 12;
       const period = h < 12 ? 'AM' : 'PM';
@@ -837,6 +849,7 @@ async function getAvailableTimes(date, barber) {
     }
     
     console.log(`Generated ${fallbackTimes.length} fallback times from ${CONFIG.businessHours.start} to ${CONFIG.businessHours.end}`);
+    console.log(`Error fallback times generated: ${fallbackTimes.map(t => t.time).join(', ')}`);
     return fallbackTimes;
   }
 }
