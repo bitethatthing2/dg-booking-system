@@ -15,7 +15,7 @@ const CONFIG = {
   timeZone: process.env.TIME_ZONE || 'America/Los_Angeles',
   businessHours: {
     start: '10:00 AM',
-    end: '6:00 PM'
+    end: '7:00 PM'
   },
   businessDays: [1, 2, 4, 5, 6], // Monday, Tuesday, Thursday, Friday, Saturday (0=Sunday, 6=Saturday)
   daysToLookAhead: 365 * 2 // Show dates for 2 years ahead
