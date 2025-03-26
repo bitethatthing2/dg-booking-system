@@ -293,9 +293,9 @@ dateSelect.addEventListener('change', async () => {
       let group = 'Morning (10:00 AM - 12:00 PM)';
       
       if (period === 'PM') {
-        if (hours < 4) {
+        if (hours === 12 || (hours >= 1 && hours < 4)) {
           group = 'Afternoon (12:00 PM - 4:00 PM)';
-        } else {
+        } else if (hours >= 4) {
           group = 'Evening (4:00 PM - 7:00 PM)';
         }
       }
