@@ -39,6 +39,7 @@ body {
   color: var(--text-color);
   background-color: var(--background-color);
   padding: 20px;
+  font-weight: 500; /* Make all text slightly bolder by default */
 }
 
 .container {
@@ -89,6 +90,7 @@ body {
   margin: 5px 0;
   font-size: 15px;
   color: var(--text-color);
+  font-weight: 500; /* Medium bold business hours notice */
 }
 
 .business-hours-notice a {
@@ -151,6 +153,7 @@ body {
   font-size: 14px;
   color: var(--text-light);
   transition: all var(--transition-speed) ease;
+  font-weight: 600; /* Bold step labels */
 }
 
 .progress-step.active .step-circle {
@@ -213,10 +216,11 @@ body {
 
 .step-instruction {
   margin-bottom: 20px;
-  padding: 15px;
-  background: var(--background-accent);
+  padding: 12px 15px;
+  background-color: var(--background-accent);
+  border-left: 3px solid var(--primary-color);
   border-radius: var(--border-radius);
-  border-left: 4px solid var(--primary-color);
+  font-weight: 600; /* Bold step instructions */
 }
 
 .form-group {
@@ -227,7 +231,7 @@ body {
 label {
   display: block;
   margin-bottom: 8px;
-  font-weight: 500;
+  font-weight: 600; /* Bold labels */
   color: var(--text-color);
 }
 
@@ -242,6 +246,7 @@ input[type="email"] {
   font-size: 16px;
   color: var(--text-color);
   transition: all var(--transition-speed) ease;
+  font-weight: 600; /* Bold inputs and selects */
 }
 
 select:focus,
@@ -252,9 +257,10 @@ input:focus {
 }
 
 .helper-text {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-light);
   margin-top: 6px;
+  font-weight: 500; /* Medium bold helper text */
 }
 
 /* Service Options Styles */
@@ -314,19 +320,20 @@ input:focus {
 }
 
 .service-name {
-  font-weight: 600;
+  font-weight: 700; /* Extra bold service names */
   color: var(--text-color);
   margin-bottom: 5px;
   font-size: 17px;
 }
 
 .service-details {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-light);
+  font-weight: 500; /* Medium bold service details */
 }
 
 .service-price {
-  font-weight: 600;
+  font-weight: 700; /* Extra bold price */
   color: var(--primary-color);
   font-size: 18px;
   margin-top: 10px;
@@ -336,20 +343,30 @@ input:focus {
 .navigation-buttons {
   display: flex;
   justify-content: space-between;
-  margin-top: 30px;
+  margin-top: 20px;
 }
 
-button {
-  padding: 14px 25px;
+.btn-prev, 
+.btn-next, 
+.btn-submit {
+  padding: 12px 25px;
   border: none;
   border-radius: var(--border-radius);
-  font-size: 16px;
-  font-weight: 500;
   cursor: pointer;
-  transition: all var(--transition-speed) ease;
-  display: flex;
+  font-size: 16px;
+  font-weight: 700; /* Extra bold buttons */
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition: all var(--transition-speed) ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-prev i, 
+.btn-next i, 
+.btn-submit i {
+  margin: 0 5px;
+  font-size: 18px; /* Larger icons */
 }
 
 .btn-prev {
@@ -536,11 +553,10 @@ button.loading {
 
 /* Style the date and time selects with optgroups */
 optgroup {
-  font-weight: 600;
+  font-weight: 700; /* Extra bold optgroup headers */
   color: var(--primary-color);
   font-style: normal;
   padding: 5px 0;
-  background-color: var(--background-accent);
 }
 
 option {
@@ -592,6 +608,7 @@ optgroup {
 }
 
 select option {
+  font-weight: 600; /* Bold options */
   padding: 8px 10px;
   font-size: 1rem;
 }
