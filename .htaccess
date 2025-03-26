@@ -1,0 +1,42 @@
+# Set the base URL for the site (change to your actual domain name)
+RewriteEngine On
+RewriteBase /
+
+# Redirect to https (uncomment once you have SSL set up)
+# RewriteCond %{HTTPS} !=on
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Redirect requests for /booking-form to /booking-form.html
+RewriteRule ^booking$ /booking-form.html [L,R=301]
+RewriteRule ^booking/$ /booking-form.html [L,R=301]
+
+# Custom error pages
+ErrorDocument 404 /not-found.html
+ErrorDocument 500 /error.html
+
+# Enable browser caching
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/jpg "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/gif "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType text/css "access plus 1 month"
+  ExpiresByType application/pdf "access plus 1 month"
+  ExpiresByType text/javascript "access plus 1 month"
+  ExpiresByType text/html "access plus 2 hours"
+  ExpiresDefault "access plus 2 days"
+</IfModule>
+
+# Enable compression
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/x-javascript application/json
+</IfModule>
+
+# Security headers
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-XSS-Protection "1; mode=block"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set Referrer-Policy "no-referrer-when-downgrade"
+</IfModule> 
