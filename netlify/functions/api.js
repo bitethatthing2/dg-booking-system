@@ -12,7 +12,12 @@ const CONFIG = {
   googlePrivateKey: process.env.GOOGLE_PRIVATE_KEY,
   spreadsheetId: process.env.SPREADSHEET_ID || process.env.SHEET_ID || '1GwdJssNZR54l3LI9UMeuRN5G5YwQXVlzmIrDWzOJY90',
   calendarId: process.env.CALENDAR_ID || 'gthabarber1@gmail.com',
-  timeZone: 'America/Los_Angeles'
+  timeZone: process.env.TIME_ZONE || 'America/Los_Angeles',
+  businessHours: {
+    start: '10:00 AM',
+    end: '6:00 PM'
+  },
+  businessDays: [1, 2, 4, 5, 6] // Monday, Tuesday, Thursday, Friday, Saturday (0=Sunday, 6=Saturday)
 };
 
 // Debug environment variables (without exposing secrets)
@@ -441,9 +446,20 @@ async function addToCalendar(booking) {
       appointmentDuration = serviceType.includes('temporary') ? 15 : 45;
     }
     
-    // Create start and end time based on service duration
-    const startTime = new Date(year, month - 1, day, hour, minute);
-    const serviceEndTime = new Date(startTime.getTime() + (appointmentDuration * 60 * 1000));
+    // Log time zone information for debugging
+    console.log(`Time zone being used: ${CONFIG.timeZone}`);
+    
+    // Create ISO string date format but preserve the time zone
+    // YYYY-MM-DDTHH:MM:SS
+    const startDateTime = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`;
+    
+    // Log the formatted date/time for debugging
+    console.log(`Formatted start time: ${startDateTime}`);
+    
+    // Calculate end time
+    const startTimeMs = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`).getTime();
+    const endTimeMs = startTimeMs + (appointmentDuration * 60 * 1000);
+    const endDateTime = new Date(endTimeMs).toISOString().replace('Z', '');
     
     console.log(`Creating calendar event for ${booking.date} at ${booking.time}`);
     console.log(`Service: ${booking.service}, duration: ${appointmentDuration} minutes`);
@@ -486,11 +502,11 @@ Barber: ${booking.barber}
       description: eventDescription,
       location: 'Distinguished Gentleman Barbers',
       start: {
-        dateTime: startTime.toISOString(),
+        dateTime: startDateTime,
         timeZone: CONFIG.timeZone
       },
       end: {
-        dateTime: serviceEndTime.toISOString(),
+        dateTime: endDateTime,
         timeZone: CONFIG.timeZone
       },
       colorId: colorId,
@@ -503,6 +519,12 @@ Barber: ${booking.barber}
         ]
       }
     };
+    
+    console.log('Calendar event date/time info:', {
+      startDateTime,
+      endDateTime,
+      timeZone: CONFIG.timeZone
+    });
     
     // Insert event to calendar
     const response = await calendar.events.insert({
@@ -557,9 +579,9 @@ async function getAvailableDates(barber) {
         const date = new Date(today);
         date.setDate(today.getDate() + i);
         
-        // Skip Sundays (0) and Wednesdays (3)
+        // Skip days that are not business days
         const dayOfWeek = date.getDay();
-        if (dayOfWeek !== 0 && dayOfWeek !== 3) {
+        if (CONFIG.businessDays.includes(dayOfWeek)) {
           const dateStr = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
           fallbackDates.push(dateStr);
         }
@@ -586,9 +608,9 @@ async function getAvailableDates(barber) {
         const date = new Date(today);
         date.setDate(today.getDate() + i);
         
-        // Skip Sundays (0) and Wednesdays (3)
+        // Only include business days specified in CONFIG
         const dayOfWeek = date.getDay();
-        if (dayOfWeek !== 0 && dayOfWeek !== 3) {
+        if (CONFIG.businessDays.includes(dayOfWeek)) {
           const dateStr = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
           
           // Only add if not already in the list
@@ -606,18 +628,18 @@ async function getAvailableDates(barber) {
       return dateA - dateB;
     });
     
-    // Filter out Sundays (0) and Wednesdays (3)
+    // Filter out non-business days
     dates = dates.filter(dateStr => {
       const date = new Date(dateStr);
       const day = date.getDay();
-      // 0 is Sunday, 3 is Wednesday
-      return day !== 0 && day !== 3;
+      // Only keep days that are in the business days list
+      return CONFIG.businessDays.includes(day);
     });
     
     // Limit to 90 days
     dates = dates.slice(0, 90);
     
-    console.log(`Found ${dates.length} available dates (excluding Sundays and Wednesdays)`);
+    console.log(`Found ${dates.length} available dates (only business days: ${CONFIG.businessDays.join(', ')})`);
     return dates;
   } catch (error) {
     console.error('Error getting dates:', error);
@@ -629,9 +651,9 @@ async function getAvailableDates(barber) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       
-      // Skip Sundays (0) and Wednesdays (3)
+      // Skip non-business days
       const dayOfWeek = date.getDay();
-      if (dayOfWeek !== 0 && dayOfWeek !== 3) {
+      if (CONFIG.businessDays.includes(dayOfWeek)) {
         const dateStr = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
         fallbackDates.push(dateStr);
       }
@@ -647,12 +669,37 @@ async function getAvailableTimes(date, barber) {
     const sheetData = await loadSheetData();
     if (!sheetData) {
       console.log('Using fallback time data');
-      return [
-        { time: '10:00 AM', barber: barber || 'Michael' },
-        { time: '11:00 AM', barber: barber || 'Michael' },
-        { time: '1:00 PM', barber: barber || 'Michael' },
-        { time: '2:00 PM', barber: barber || 'Michael' }
-      ];
+      // Generate fallback times based on business hours in CONFIG
+      const fallbackTimes = [];
+      
+      // Convert business hours from CONFIG
+      const startHourStr = CONFIG.businessHours.start;
+      const endHourStr = CONFIG.businessHours.end;
+      
+      // Parse start time
+      const [startTimeStr, startPeriod] = startHourStr.split(' ');
+      let [startHour, startMinute] = startTimeStr.split(':').map(Number);
+      if (startPeriod === 'PM' && startHour !== 12) startHour += 12;
+      if (startPeriod === 'AM' && startHour === 12) startHour = 0;
+      
+      // Parse end time
+      const [endTimeStr, endPeriod] = endHourStr.split(' ');
+      let [endHour, endMinute] = endTimeStr.split(':').map(Number);
+      if (endPeriod === 'PM' && endHour !== 12) endHour += 12;
+      if (endPeriod === 'AM' && endHour === 12) endHour = 0;
+      
+      // Generate hourly slots
+      for (let h = startHour; h < endHour; h++) {
+        const hour = h % 12 === 0 ? 12 : h % 12;
+        const period = h < 12 ? 'AM' : 'PM';
+        fallbackTimes.push({
+          time: `${hour}:00 ${period}`,
+          barber: barber || 'Michael'
+        });
+      }
+      
+      console.log(`Generated ${fallbackTimes.length} fallback times from ${CONFIG.businessHours.start} to ${CONFIG.businessHours.end}`);
+      return fallbackTimes;
     }
     
     // Filter times for the specified date and barber
@@ -681,7 +728,18 @@ async function getAvailableTimes(date, barber) {
       return to24h(a.time) - to24h(b.time);
     });
     
-    // Filter times outside of working hours (10am-7pm)
+    // Parse business hours from CONFIG for filtering
+    const [startTimeStr, startPeriod] = CONFIG.businessHours.start.split(' ');
+    let [startHour, startMinute] = startTimeStr.split(':').map(Number);
+    if (startPeriod === 'PM' && startHour !== 12) startHour += 12;
+    if (startPeriod === 'AM' && startHour === 12) startHour = 0;
+    
+    const [endTimeStr, endPeriod] = CONFIG.businessHours.end.split(' ');
+    let [endHour, endMinute] = endTimeStr.split(':').map(Number);
+    if (endPeriod === 'PM' && endHour !== 12) endHour += 12;
+    if (endPeriod === 'AM' && endHour === 12) endHour = 0;
+    
+    // Filter times outside of working hours
     const filteredByHours = availableTimes.filter(timeObj => {
       const [timeStr, period] = timeObj.time.split(' ');
       let [hours, minutes] = timeStr.split(':').map(Number);
@@ -690,8 +748,8 @@ async function getAvailableTimes(date, barber) {
       if (period === 'PM' && hours !== 12) hours += 12;
       if (period === 'AM' && hours === 12) hours = 0;
       
-      // Working hours: 10am (10) to 7pm (19)
-      return hours >= 10 && hours < 19;
+      // Check if time is within business hours
+      return hours >= startHour && hours < endHour;
     });
     
     // Apply 2-hour booking window restriction
@@ -744,20 +802,45 @@ async function getAvailableTimes(date, barber) {
         return isAvailable;
       });
       
-      console.log(`Found ${filteredTimes.length} available times after applying 2-hour booking window and 10am-7pm hours`);
+      console.log(`Found ${filteredTimes.length} available times after applying 2-hour booking window and ${CONFIG.businessHours.start}-${CONFIG.businessHours.end} hours`);
       return filteredTimes;
     }
     
-    console.log(`Found ${filteredByHours.length} available times for ${date} between 10am and 7pm`);
+    console.log(`Found ${filteredByHours.length} available times for ${date} between ${CONFIG.businessHours.start} and ${CONFIG.businessHours.end}`);
     return filteredByHours;
   } catch (error) {
     console.error('Error getting times:', error);
-    return [
-      { time: '10:00 AM', barber: barber || 'Michael' },
-      { time: '11:00 AM', barber: barber || 'Michael' },
-      { time: '1:00 PM', barber: barber || 'Michael' },
-      { time: '2:00 PM', barber: barber || 'Michael' }
-    ]; // Fallback times
+    // Generate fallback times based on business hours
+    const fallbackTimes = [];
+    
+    // Convert business hours from CONFIG
+    const startHourStr = CONFIG.businessHours.start;
+    const endHourStr = CONFIG.businessHours.end;
+    
+    // Parse start time
+    const [startTimeStr, startPeriod] = startHourStr.split(' ');
+    let [startHour, startMinute] = startTimeStr.split(':').map(Number);
+    if (startPeriod === 'PM' && startHour !== 12) startHour += 12;
+    if (startPeriod === 'AM' && startHour === 12) startHour = 0;
+    
+    // Parse end time
+    const [endTimeStr, endPeriod] = endHourStr.split(' ');
+    let [endHour, endMinute] = endTimeStr.split(':').map(Number);
+    if (endPeriod === 'PM' && endHour !== 12) endHour += 12;
+    if (endPeriod === 'AM' && endHour === 12) endHour = 0;
+    
+    // Generate hourly slots
+    for (let h = startHour; h < endHour; h++) {
+      const hour = h % 12 === 0 ? 12 : h % 12;
+      const period = h < 12 ? 'AM' : 'PM';
+      fallbackTimes.push({
+        time: `${hour}:00 ${period}`,
+        barber: barber || 'Michael'
+      });
+    }
+    
+    console.log(`Generated ${fallbackTimes.length} fallback times from ${CONFIG.businessHours.start} to ${CONFIG.businessHours.end}`);
+    return fallbackTimes;
   }
 }
 
