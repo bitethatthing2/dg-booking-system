@@ -692,7 +692,7 @@ async function getAvailableTimes(date, barber) {
       if (endPeriod === 'AM' && endHour === 12) endHour = 0;
       
       // Generate hourly slots
-      for (let h = startHour; h < endHour; h++) {
+      for (let h = startHour; h <= endHour; h++) {
         const hour = h % 12 === 0 ? 12 : h % 12;
         const period = h < 12 ? 'AM' : 'PM';
         fallbackTimes.push({
@@ -747,8 +747,8 @@ async function getAvailableTimes(date, barber) {
       const minutes = timeToMinutes(timeObj.time);
       const hours = Math.floor(minutes / 60);
       
-      // Check if time is within business hours
-      return hours >= startHour && hours < endHour;
+      // Check if time is within business hours - include the end hour (6 PM)
+      return hours >= startHour && hours <= endHour;
     });
     
     // Apply 2-hour booking window restriction
@@ -827,7 +827,7 @@ async function getAvailableTimes(date, barber) {
     if (endPeriod === 'AM' && endHour === 12) endHour = 0;
     
     // Generate hourly slots
-    for (let h = startHour; h < endHour; h++) {
+    for (let h = startHour; h <= endHour; h++) {
       const hour = h % 12 === 0 ? 12 : h % 12;
       const period = h < 12 ? 'AM' : 'PM';
       fallbackTimes.push({

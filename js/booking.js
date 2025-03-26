@@ -359,7 +359,7 @@ dateSelect.addEventListener('change', async () => {
     const timeGroups = {
       'Morning (10:00 AM - 12:00 PM)': [],
       'Afternoon (12:00 PM - 4:00 PM)': [],
-      'Evening (4:00 PM - 7:00 PM)': []
+      'Evening (4:00 PM - 6:00 PM)': []
     };
     
     // Add time options
@@ -374,7 +374,7 @@ dateSelect.addEventListener('change', async () => {
         if (hours === 12 || (hours >= 1 && hours < 4)) {
           group = 'Afternoon (12:00 PM - 4:00 PM)';
         } else if (hours >= 4) {
-          group = 'Evening (4:00 PM - 7:00 PM)';
+          group = 'Evening (4:00 PM - 6:00 PM)';
         }
       }
       
