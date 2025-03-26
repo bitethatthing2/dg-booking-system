@@ -549,19 +549,58 @@ async function getAvailableDates(barber) {
     const sheetData = await loadSheetData();
     if (!sheetData) {
       console.log('Using fallback date data');
-      return [
-        '3/24/2025', '3/25/2025', '3/26/2025', '3/27/2025', 
-        '3/28/2025', '3/30/2025', '3/31/2025', '4/1/2025'
-      ];
+      // Generate fallback dates for 90 days
+      const fallbackDates = [];
+      const today = new Date();
+      
+      for (let i = 0; i < 90; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        
+        // Skip Sundays (0) and Wednesdays (3)
+        const dayOfWeek = date.getDay();
+        if (dayOfWeek !== 0 && dayOfWeek !== 3) {
+          const dateStr = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+          fallbackDates.push(dateStr);
+        }
+      }
+      
+      return fallbackDates;
     }
     
-    // Filter dates for the specified barber
+    // Get unique dates from the sheet
     let dates = sheetData.data
       .filter(row => row.isAvailable && (!barber || row.barber === barber))
       .map(row => row.date);
     
-    // Remove duplicates and sort
-    dates = [...new Set(dates)].sort((a, b) => {
+    // Remove duplicates
+    dates = [...new Set(dates)];
+    
+    // If we don't have enough dates from the sheet, generate additional dates
+    const datesFromSheet = new Set(dates);
+    if (datesFromSheet.size < 90) {
+      const today = new Date();
+      
+      // Generate dates for 90 days
+      for (let i = 0; i < 90; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        
+        // Skip Sundays (0) and Wednesdays (3)
+        const dayOfWeek = date.getDay();
+        if (dayOfWeek !== 0 && dayOfWeek !== 3) {
+          const dateStr = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+          
+          // Only add if not already in the list
+          if (!datesFromSheet.has(dateStr)) {
+            dates.push(dateStr);
+          }
+        }
+      }
+    }
+    
+    // Sort dates
+    dates.sort((a, b) => {
       const dateA = new Date(a);
       const dateB = new Date(b);
       return dateA - dateB;
@@ -575,14 +614,30 @@ async function getAvailableDates(barber) {
       return day !== 0 && day !== 3;
     });
     
+    // Limit to 90 days
+    dates = dates.slice(0, 90);
+    
     console.log(`Found ${dates.length} available dates (excluding Sundays and Wednesdays)`);
     return dates;
   } catch (error) {
     console.error('Error getting dates:', error);
-    return [
-      '3/24/2025', '3/25/2025', '3/26/2025', '3/27/2025', 
-      '3/28/2025', '3/30/2025', '3/31/2025', '4/1/2025'
-    ]; // Fallback dates
+    // Generate fallback dates for 90 days
+    const fallbackDates = [];
+    const today = new Date();
+    
+    for (let i = 0; i < 90; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      
+      // Skip Sundays (0) and Wednesdays (3)
+      const dayOfWeek = date.getDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 3) {
+        const dateStr = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+        fallbackDates.push(dateStr);
+      }
+    }
+    
+    return fallbackDates;
   }
 }
 

@@ -11,6 +11,24 @@ const bookingForm = document.getElementById('bookingForm');
 const messageDiv = document.getElementById('message');
 const serviceOptions = document.querySelectorAll('.service-option');
 
+// Utility functions
+const setLoading = (element, isLoading) => {
+  if (isLoading) {
+    element.setAttribute('disabled', true);
+    element.classList.add('loading');
+    // Store the original text and add a loading spinner
+    element.dataset.originalText = element.innerHTML;
+    element.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Loading...';
+  } else {
+    element.removeAttribute('disabled');
+    element.classList.remove('loading');
+    // Restore the original text
+    if (element.dataset.originalText) {
+      element.innerHTML = element.dataset.originalText;
+    }
+  }
+};
+
 // Add special days message
 const addSpecialDaysMessage = () => {
   // First check if the message already exists to prevent duplicates
@@ -22,7 +40,7 @@ const addSpecialDaysMessage = () => {
   const specialDaysMessageDiv = document.createElement('div');
   specialDaysMessageDiv.className = 'special-days-message';
   specialDaysMessageDiv.innerHTML = `
-    <p class="note"><strong>Note:</strong> We are closed Sundays and Wednesdays. 
+    <p class="note"><strong><i class="bi bi-info-circle"></i> Note:</strong> We are closed Sundays and Wednesdays. 
     For appointments on these days, please contact Mike directly at <a href="tel:5034008151">(503) 400-8151</a>.</p>
   `;
   
@@ -62,6 +80,12 @@ serviceOptions.forEach(option => {
     this.classList.add('selected');
     const radio = this.querySelector('input[type="radio"]');
     radio.checked = true;
+    
+    // Add animation to the selected service
+    option.classList.add('pulse');
+    setTimeout(() => {
+      option.classList.remove('pulse');
+    }, 500);
   });
 });
 
@@ -108,6 +132,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     // Setup event listeners to clear error messages
     setupErrorClearingListeners();
     
+    const fetchButton = document.querySelector('.btn-next[data-next="2"]');
+    setLoading(fetchButton, true);
+    
     const response = await fetch(`${API_BASE_URL}/available-barbers`, {
       headers: {
         'Accept': 'application/json',
@@ -130,10 +157,15 @@ window.addEventListener('DOMContentLoaded', async () => {
       barberSelect.innerHTML = '<option value="">No barbers available</option>';
       showMessage('No barbers are currently available. Please try again later.', 'warning');
     }
+    
+    setLoading(fetchButton, false);
   } catch (error) {
     console.error('Error loading barbers:', error);
     barberSelect.innerHTML = '<option value="">Error loading barbers</option>';
     showMessage(error.message || 'Error loading barbers. Please refresh the page.', 'error');
+    
+    const fetchButton = document.querySelector('.btn-next[data-next="2"]');
+    setLoading(fetchButton, false);
   }
 });
 
@@ -161,12 +193,42 @@ barberSelect.addEventListener('change', async () => {
     
     dateSelect.innerHTML = '<option value="">Select a date</option>';
     
-    data.dates.forEach(date => {
-      const option = document.createElement('option');
-      option.value = date;
-      option.textContent = formatDate(date);
-      dateSelect.appendChild(option);
-    });
+    if (data.dates && data.dates.length > 0) {
+      // Group dates by month for easier selection
+      const datesByMonth = {};
+      
+      data.dates.forEach(date => {
+        const dateObj = new Date(date);
+        const monthYear = dateObj.toLocaleDateString('en-US', { 
+          month: 'long', 
+          year: 'numeric' 
+        });
+        
+        if (!datesByMonth[monthYear]) {
+          datesByMonth[monthYear] = [];
+        }
+        
+        datesByMonth[monthYear].push(date);
+      });
+      
+      // Create option groups by month
+      Object.keys(datesByMonth).forEach(monthYear => {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = monthYear;
+        
+        datesByMonth[monthYear].forEach(date => {
+          const option = document.createElement('option');
+          option.value = date;
+          option.textContent = formatDate(date);
+          optgroup.appendChild(option);
+        });
+        
+        dateSelect.appendChild(optgroup);
+      });
+    } else {
+      dateSelect.innerHTML = '<option value="">No available dates</option>';
+      showMessage('No available dates found for the selected barber.', 'warning');
+    }
   } catch (error) {
     console.error('Error loading dates:', error);
     dateSelect.innerHTML = '<option value="">Error loading dates</option>';
@@ -215,12 +277,47 @@ dateSelect.addEventListener('change', async () => {
       return;
     }
     
+    // Group times by period (morning, afternoon, evening)
+    const timeGroups = {
+      'Morning (10:00 AM - 12:00 PM)': [],
+      'Afternoon (12:00 PM - 4:00 PM)': [],
+      'Evening (4:00 PM - 7:00 PM)': []
+    };
+    
     // Add time options
     data.availableTimes.forEach(timeSlot => {
-      const option = document.createElement('option');
-      option.value = timeSlot.time;
-      option.textContent = `${timeSlot.time} - ${timeSlot.barber}`;
-      timeSelect.appendChild(option);
+      const [time, period] = timeSlot.time.split(' ');
+      const [hours, minutes] = time.split(':').map(Number);
+      
+      // Determine which group this time belongs to
+      let group = 'Morning (10:00 AM - 12:00 PM)';
+      
+      if (period === 'PM') {
+        if (hours < 4) {
+          group = 'Afternoon (12:00 PM - 4:00 PM)';
+        } else {
+          group = 'Evening (4:00 PM - 7:00 PM)';
+        }
+      }
+      
+      timeGroups[group].push(timeSlot);
+    });
+    
+    // Create option groups
+    Object.keys(timeGroups).forEach(group => {
+      if (timeGroups[group].length > 0) {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = group;
+        
+        timeGroups[group].forEach(timeSlot => {
+          const option = document.createElement('option');
+          option.value = timeSlot.time;
+          option.textContent = `${timeSlot.time} - ${timeSlot.barber}`;
+          optgroup.appendChild(option);
+        });
+        
+        timeSelect.appendChild(optgroup);
+      }
     });
     
     if (data.availableTimes.length === 0) {
@@ -262,6 +359,9 @@ bookingForm.addEventListener('submit', async event => {
   }
   
   try {
+    const submitButton = document.querySelector('.btn-submit');
+    setLoading(submitButton, true);
+    
     const response = await fetch(`${API_BASE_URL}/submit-booking`, {
       method: 'POST',
       headers: {
@@ -273,35 +373,72 @@ bookingForm.addEventListener('submit', async event => {
     
     const result = await handleApiResponse(response);
     
+    setLoading(submitButton, false);
+    
     if (result.success) {
-      showMessage(`Appointment booked successfully! ${formData.email ? 'A confirmation email will be sent shortly.' : ''}`, 'success');
+      showMessage(`<i class="bi bi-check-circle"></i> Appointment booked successfully! ${formData.email ? 'A confirmation email will be sent shortly.' : ''}`, 'success');
       
-      bookingForm.reset();
-      serviceOptions.forEach(opt => opt.classList.remove('selected'));
-      dateSelect.innerHTML = '<option value="">Select a barber first</option>';
-      timeSelect.innerHTML = '<option value="">Select a date first</option>';
+      // Reset form with animation
+      document.querySelectorAll('.form-section').forEach(section => {
+        section.classList.add('fade-out');
+      });
+      
+      setTimeout(() => {
+        bookingForm.reset();
+        serviceOptions.forEach(opt => opt.classList.remove('selected'));
+        dateSelect.innerHTML = '<option value="">Select a barber first</option>';
+        timeSelect.innerHTML = '<option value="">Select a date first</option>';
+        
+        // Return to step 1
+        showStep(1);
+        
+        document.querySelectorAll('.form-section').forEach(section => {
+          section.classList.remove('fade-out');
+        });
+      }, 500);
     } else {
-      showMessage(`Booking failed: ${result.error || 'Unknown error'}`, 'error');
+      showMessage(`<i class="bi bi-exclamation-triangle"></i> Booking failed: ${result.error || 'Unknown error'}`, 'error');
     }
   } catch (error) {
     console.error('Error submitting booking:', error);
-    showMessage(error.message || 'There was a problem submitting your booking. Please try again later.', 'error');
+    showMessage(`<i class="bi bi-exclamation-triangle"></i> ${error.message || 'There was a problem submitting your booking. Please try again later.'}`, 'error');
+    
+    const submitButton = document.querySelector('.btn-submit');
+    setLoading(submitButton, false);
   }
 });
 
 // Helper Functions
 function formatDate(dateString) {
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
+  const options = {
     weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
+    month: 'long', 
+    day: 'numeric',
+    year: 'numeric'
+  };
+  
+  // Get day of month with suffix (1st, 2nd, 3rd, etc.)
+  const day = date.getDate();
+  const suffix = getDaySuffix(day);
+  
+  const formattedDate = date.toLocaleDateString('en-US', options);
+  // Replace the day number with the day number + suffix
+  return formattedDate.replace(day, `${day}${suffix}`);
+}
+
+function getDaySuffix(day) {
+  if (day > 3 && day < 21) return 'th';
+  switch (day % 10) {
+    case 1: return 'st';
+    case 2: return 'nd';
+    case 3: return 'rd';
+    default: return 'th';
+  }
 }
 
 function showMessage(text, type) {
-  messageDiv.textContent = text;
+  messageDiv.innerHTML = text;
   messageDiv.className = type;
   messageDiv.style.display = 'block';
   messageDiv.scrollIntoView({ behavior: 'smooth' });
@@ -323,12 +460,39 @@ function showStep(stepNumber) {
   // Hide any existing error messages when changing steps
   hideMessage();
   
-  // Hide all sections and show only the current one
-  document.querySelectorAll('.form-section').forEach(section => {
-    section.classList.remove('active');
-  });
-  document.querySelector(`.form-section[data-step="${stepNumber}"]`).classList.add('active');
-  updateProgressBar(stepNumber);
+  // Apply fade-out animation to the current active section
+  const activeSection = document.querySelector('.form-section.active');
+  if (activeSection) {
+    activeSection.classList.add('fade-out');
+    
+    setTimeout(() => {
+      // After animation completes, switch sections
+      document.querySelectorAll('.form-section').forEach(section => {
+        section.classList.remove('active', 'fade-out');
+      });
+      
+      // Show the new section
+      const newSection = document.querySelector(`.form-section[data-step="${stepNumber}"]`);
+      newSection.classList.add('active');
+      newSection.classList.add('fade-in');
+      
+      // Update progress bar
+      updateProgressBar(stepNumber);
+      
+      // Remove animation class after it completes
+      setTimeout(() => {
+        newSection.classList.remove('fade-in');
+      }, 500);
+      
+    }, 300); // Match with CSS transition duration
+  } else {
+    // Fallback if no active section (shouldn't happen)
+    document.querySelectorAll('.form-section').forEach(section => {
+      section.classList.remove('active');
+    });
+    document.querySelector(`.form-section[data-step="${stepNumber}"]`).classList.add('active');
+    updateProgressBar(stepNumber);
+  }
   
   // Add special days message when navigating to step 3
   if (stepNumber === 3) {
@@ -347,20 +511,20 @@ function validateStep(step) {
   switch(step) {
     case 1:
       if (!barberSelect.value) {
-        showMessage('Please select a barber to continue.', 'error');
+        showMessage('<i class="bi bi-exclamation-triangle"></i> Please select a barber to continue.', 'error');
         return false;
       }
       return true;
     case 2:
       const selectedService = document.querySelector('input[name="service"]:checked');
       if (!selectedService) {
-        showMessage('Please select a service to continue.', 'error');
+        showMessage('<i class="bi bi-exclamation-triangle"></i> Please select a service to continue.', 'error');
         return false;
       }
       return true;
     case 3:
       if (!dateSelect.value || !timeSelect.value) {
-        showMessage('Please select both date and time to continue.', 'error');
+        showMessage('<i class="bi bi-exclamation-triangle"></i> Please select both date and time to continue.', 'error');
         return false;
       }
       return true;

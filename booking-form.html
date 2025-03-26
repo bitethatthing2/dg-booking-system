@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Barber Shop Booking</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
   <link href="css/styles.css" rel="stylesheet">
 </head>
 <body>
@@ -22,22 +23,24 @@
     
     <div class="progress-bar">
       <div class="progress-step active" data-step="1">
-        <div class="step-circle">1</div>
+        <div class="step-circle"><i class="bi bi-scissors"></i></div>
         <div class="step-label">Select Barber</div>
       </div>
       <div class="progress-step" data-step="2">
-        <div class="step-circle">2</div>
+        <div class="step-circle"><i class="bi bi-list-check"></i></div>
         <div class="step-label">Choose Service</div>
       </div>
       <div class="progress-step" data-step="3">
-        <div class="step-circle">3</div>
+        <div class="step-circle"><i class="bi bi-calendar"></i></div>
         <div class="step-label">Pick Date & Time</div>
       </div>
       <div class="progress-step" data-step="4">
-        <div class="step-circle">4</div>
+        <div class="step-circle"><i class="bi bi-person"></i></div>
         <div class="step-label">Your Details</div>
       </div>
     </div>
+    
+    <div id="message" class="hidden"></div>
     
     <form id="bookingForm">
       <!-- Step 1: Select Barber -->
@@ -46,15 +49,15 @@
           <strong>Step 1:</strong> Please select your preferred barber to proceed.
         </div>
         <div class="form-group">
-          <label for="barber">Select Barber:</label>
+          <label for="barber"><i class="bi bi-person-badge"></i> Select Barber:</label>
           <select id="barber" name="barber" required>
             <option value="">Loading barbers...</option>
           </select>
           <div class="helper-text">Choose your preferred barber to see their available services and times.</div>
         </div>
         <div class="navigation-buttons">
-          <button type="button" class="btn-prev hidden">Previous</button>
-          <button type="button" class="btn-next" data-next="2">Next Step</button>
+          <button type="button" class="btn-prev hidden"><i class="bi bi-arrow-left"></i> Previous</button>
+          <button type="button" class="btn-next" data-next="2">Next Step <i class="bi bi-arrow-right"></i></button>
         </div>
       </div>
       
@@ -64,12 +67,13 @@
           <strong>Step 2:</strong> Select the service you'd like to book.
         </div>
         <div class="form-group">
+          <label><i class="bi bi-scissors"></i> Select Service:</label>
           <div class="service-options">
             <label class="service-option" for="service-haircut">
               <input type="radio" id="service-haircut" name="service" value="Haircut">
               <div class="service-info">
                 <div class="service-name">Haircut</div>
-                <div class="service-details">45 min</div>
+                <div class="service-details"><i class="bi bi-clock"></i> 45 min</div>
               </div>
               <div class="service-price">$45.00</div>
             </label>
@@ -78,7 +82,7 @@
               <input type="radio" id="service-haircut-beard" name="service" value="Haircut & Beard Trim">
               <div class="service-info">
                 <div class="service-name">Haircut & Beard Trim</div>
-                <div class="service-details">60 min</div>
+                <div class="service-details"><i class="bi bi-clock"></i> 60 min</div>
               </div>
               <div class="service-price">$60.00</div>
             </label>
@@ -87,7 +91,7 @@
               <input type="radio" id="service-haircut-beard-shave" name="service" value="Haircut, Beard Trim & Straight Razor Shave">
               <div class="service-info">
                 <div class="service-name">Haircut, Beard Trim & Straight Razor Shave</div>
-                <div class="service-details">60 min</div>
+                <div class="service-details"><i class="bi bi-clock"></i> 60 min</div>
               </div>
               <div class="service-price">$80.00</div>
             </label>
@@ -96,7 +100,7 @@
               <input type="radio" id="service-razor-shave" name="service" value="Straight Razor Shave">
               <div class="service-info">
                 <div class="service-name">Straight Razor Shave</div>
-                <div class="service-details">30 min</div>
+                <div class="service-details"><i class="bi bi-clock"></i> 30 min</div>
               </div>
               <div class="service-price">$35.00</div>
             </label>
@@ -105,7 +109,7 @@
               <input type="radio" id="service-beard-trim" name="service" value="Beard Trim">
               <div class="service-info">
                 <div class="service-name">Beard Trim</div>
-                <div class="service-details">30 min</div>
+                <div class="service-details"><i class="bi bi-clock"></i> 30 min</div>
               </div>
               <div class="service-price">$30.00</div>
             </label>
@@ -114,7 +118,7 @@
               <input type="radio" id="service-enhancement-perm" name="service" value="Hair Enhancement (Permanent)">
               <div class="service-info">
                 <div class="service-name">Hair Enhancement (Permanent)</div>
-                <div class="service-details">45 min</div>
+                <div class="service-details"><i class="bi bi-clock"></i> 45 min</div>
               </div>
               <div class="service-price">$45.00</div>
             </label>
@@ -123,15 +127,15 @@
               <input type="radio" id="service-enhancement-temp" name="service" value="Hair Enhancement (Temporary - Air-Brush)">
               <div class="service-info">
                 <div class="service-name">Hair Enhancement (Temporary - Air-Brush)</div>
-                <div class="service-details">15 min</div>
+                <div class="service-details"><i class="bi bi-clock"></i> 15 min</div>
               </div>
               <div class="service-price">$15.00</div>
             </label>
           </div>
         </div>
         <div class="navigation-buttons">
-          <button type="button" class="btn-prev" data-prev="1">Previous</button>
-          <button type="button" class="btn-next" data-next="3">Next Step</button>
+          <button type="button" class="btn-prev" data-prev="1"><i class="bi bi-arrow-left"></i> Previous</button>
+          <button type="button" class="btn-next" data-next="3">Next Step <i class="bi bi-arrow-right"></i></button>
         </div>
       </div>
       
@@ -141,22 +145,22 @@
           <strong>Step 3:</strong> Choose your preferred date and available time slot.
         </div>
         <div class="form-group">
-          <label for="date">Select Date:</label>
+          <label for="date"><i class="bi bi-calendar-date"></i> Select Date:</label>
           <select id="date" name="date" required>
             <option value="">Select a date</option>
           </select>
           <div class="helper-text">Pick a date to see available time slots.</div>
         </div>
         <div class="form-group">
-          <label for="time">Select Time:</label>
+          <label for="time"><i class="bi bi-clock"></i> Select Time:</label>
           <select id="time" name="time" required>
             <option value="">Select a date first</option>
           </select>
           <div class="helper-text">Choose from available time slots for your selected date.</div>
         </div>
         <div class="navigation-buttons">
-          <button type="button" class="btn-prev" data-prev="2">Previous</button>
-          <button type="button" class="btn-next" data-next="4">Next Step</button>
+          <button type="button" class="btn-prev" data-prev="2"><i class="bi bi-arrow-left"></i> Previous</button>
+          <button type="button" class="btn-next" data-next="4">Next Step <i class="bi bi-arrow-right"></i></button>
         </div>
       </div>
       
@@ -166,28 +170,26 @@
           <strong>Final Step:</strong> Please provide your contact information.
         </div>
         <div class="form-group">
-          <label for="name">Full Name:</label>
+          <label for="name"><i class="bi bi-person"></i> Full Name:</label>
           <input type="text" id="name" name="name" required>
           <div class="helper-text">Enter your full name as it should appear on the booking.</div>
         </div>
         <div class="form-group">
-          <label for="phone">Phone Number:</label>
+          <label for="phone"><i class="bi bi-telephone"></i> Phone Number:</label>
           <input type="tel" id="phone" name="phone">
           <div class="helper-text">We'll send booking confirmations to this number.</div>
         </div>
         <div class="form-group">
-          <label for="email">Email Address:</label>
+          <label for="email"><i class="bi bi-envelope"></i> Email Address:</label>
           <input type="email" id="email" name="email">
           <div class="helper-text">We'll send booking confirmations to this email.</div>
         </div>
         <div class="navigation-buttons">
-          <button type="button" class="btn-prev" data-prev="3">Previous</button>
-          <button type="submit" class="btn-submit">Confirm Booking</button>
+          <button type="button" class="btn-prev" data-prev="3"><i class="bi bi-arrow-left"></i> Previous</button>
+          <button type="submit" class="btn-submit"><i class="bi bi-check-circle"></i> Confirm Booking</button>
         </div>
       </div>
     </form>
-    
-    <div id="message" class="hidden"></div>
   </div>
   
   <script src="js/booking.js"></script>
