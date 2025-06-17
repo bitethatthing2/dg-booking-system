@@ -15,10 +15,10 @@ const CONFIG = {
   timeZone: process.env.TIME_ZONE || 'America/Los_Angeles',
   businessHours: {
     start: '10:00 AM',
-    end: '7:00 PM'
+    end: '6:00 PM'
   },
   businessDays: [1, 2, 4, 5, 6], // Monday, Tuesday, Thursday, Friday, Saturday (0=Sunday, 6=Saturday)
-  daysToLookAhead: 365 * 2 // Show dates for 2 years ahead
+  daysToLookAhead: 180 // Show dates for 6 months ahead (more reasonable than 2 years)
 };
 
 // Debug environment variables (without exposing secrets)
@@ -59,6 +59,46 @@ const CALENDAR_COLORS = {
   'Hair Enhancement': '4',     // Red
   'default': '1'               // Lavender
 };
+
+// Helper function to check if a date string is in the past
+function isDateInPast(dateStr) {
+  try {
+    // Parse the date string (expected format: M/D/YYYY)
+    const [month, day, year] = dateStr.split('/').map(num => parseInt(num));
+    
+    // Get current Pacific time
+    const now = new Date();
+    const pacificTime = new Date(now.toLocaleString("en-US", {timeZone: CONFIG.timeZone}));
+    
+    // Create date objects for comparison (at midnight)
+    const checkDate = new Date(year, month - 1, day);
+    checkDate.setHours(0, 0, 0, 0);
+    
+    const todayPacific = new Date(pacificTime.getFullYear(), pacificTime.getMonth(), pacificTime.getDate());
+    todayPacific.setHours(0, 0, 0, 0);
+    
+    // DEBUG: Log the comparison
+    console.log(`Pacific time check: ${dateStr} (${checkDate.toDateString()}) < today Pacific (${todayPacific.toDateString()}) = ${checkDate < todayPacific}`);
+    
+    // Return true if the date is before today Pacific time (not including today)
+    return checkDate < todayPacific;
+  } catch (error) {
+    console.error(`Error parsing date ${dateStr}:`, error);
+    // If we can't parse the date, assume it's invalid (past)
+    return true;
+  }
+}
+
+// Helper function to parse date string to Date object
+function parseDate(dateStr) {
+  try {
+    const [month, day, year] = dateStr.split('/').map(num => parseInt(num));
+    return new Date(year, month - 1, day);
+  } catch (error) {
+    console.error(`Error parsing date ${dateStr}:`, error);
+    return null;
+  }
+}
 
 // Helper function to get Google auth
 async function getGoogleAuth() {
@@ -119,7 +159,7 @@ const createTransporter = () => {
     return null;
   }
 
-  return nodemailer.createTransport({
+  return nodemailer.createTransporter({
     service: CONFIG.emailService,
     auth: {
       user: CONFIG.emailUser,
@@ -248,13 +288,25 @@ async function loadSheetData() {
       return null;
     }
     
-    // Map sheet data to structured objects, with more flexible status checking
+    // Count how many past dates we're filtering out
+    let pastDatesCount = 0;
+    let totalRowsProcessed = 0;
+    
+    // Map sheet data to structured objects, filtering out past dates
     const mappedData = rows.slice(1).map((row, index) => {
+      totalRowsProcessed++;
+      
       // Handle potential missing values
       const date = row[dateIndex] || '';
       const time = row[timeIndex] || '';
       const barber = row[barberIndex] || '';
       const status = (row[statusIndex] || '').toString().toLowerCase().trim();
+      
+      // Check if this date is in the past
+      if (isDateInPast(date)) {
+        pastDatesCount++;
+        return null; // Will be filtered out
+      }
       
       // Check if status indicates availability
       // Accept "available", "yes", "true", "1", etc. as available
@@ -278,13 +330,15 @@ async function loadSheetData() {
         status: status,
         isAvailable: isAvailable
       };
-    });
+    }).filter(row => row !== null); // Remove null entries (past dates)
     
-    console.log(`Mapped ${mappedData.length} rows of data`);
+    console.log(`Processed ${totalRowsProcessed} rows, filtered out ${pastDatesCount} past dates`);
+    console.log(`Returning ${mappedData.length} future/current date rows`);
     
     return {
       headers,
-      data: mappedData
+      data: mappedData,
+      filteredPastDates: pastDatesCount
     };
   } catch (error) {
     console.error('Error loading sheet data:', error);
@@ -589,20 +643,43 @@ async function getAvailableDates(barber) {
       }
       
       console.log(`Generated ${fallbackDates.length} fallback dates for the next ${CONFIG.daysToLookAhead} days`);
-      return fallbackDates;
+      // Ensure our fallback dates are deduplicated
+      return [...new Set(fallbackDates)];
     }
     
-    // Get unique dates from the sheet
+    console.log(`Getting available dates for barber: ${barber || 'any'}`);
+    
+    // Get unique dates from the sheet (already filtered for future dates)
     let dates = sheetData.data
       .filter(row => row.isAvailable && (!barber || row.barber === barber))
       .map(row => row.date);
     
-    // Remove duplicates
-    dates = [...new Set(dates)];
+    console.log(`Initial dates from sheet (may include duplicates): ${dates.length}`);
+    
+    // Create a Set to track unique dates
+    const uniqueDatesSet = new Set();
+    const duplicatesFound = [];
+    
+    // Remove duplicates while keeping track of them for debugging
+    dates.forEach(date => {
+      if (uniqueDatesSet.has(date)) {
+        duplicatesFound.push(date);
+      } else {
+        uniqueDatesSet.add(date);
+      }
+    });
+    
+    // Get the final unique dates
+    dates = [...uniqueDatesSet];
+    
+    console.log(`Found ${dates.length} unique dates from sheet data`);
+    if (duplicatesFound.length > 0) {
+      console.log(`Removed ${duplicatesFound.length} duplicate dates`);
+      console.log(`First few duplicates: ${duplicatesFound.slice(0, 5).join(', ')}`);
+    }
     
     // If we don't have enough dates from the sheet, generate additional dates
-    const datesFromSheet = new Set(dates);
-    if (datesFromSheet.size < CONFIG.daysToLookAhead) {
+    if (uniqueDatesSet.size < CONFIG.daysToLookAhead) {
       const today = new Date();
       
       // Generate dates for the configured days ahead
@@ -616,7 +693,8 @@ async function getAvailableDates(barber) {
           const dateStr = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
           
           // Only add if not already in the list
-          if (!datesFromSheet.has(dateStr)) {
+          if (!uniqueDatesSet.has(dateStr)) {
+            uniqueDatesSet.add(dateStr);
             dates.push(dateStr);
           }
         }
@@ -625,24 +703,44 @@ async function getAvailableDates(barber) {
     
     // Sort dates
     dates.sort((a, b) => {
-      const dateA = new Date(a);
-      const dateB = new Date(b);
+      const dateA = parseDate(a);
+      const dateB = parseDate(b);
       return dateA - dateB;
     });
     
-    // Filter out non-business days
+    // Filter out non-business days (should already be filtered, but double-check)
     dates = dates.filter(dateStr => {
-      const date = new Date(dateStr);
+      const date = parseDate(dateStr);
+      if (!date) return false;
       const day = date.getDay();
       // Only keep days that are in the business days list
       return CONFIG.businessDays.includes(day);
     });
     
     // Limit to the configured days ahead
-    dates = dates.slice(0, CONFIG.daysToLookAhead);
+    // This helps prevent returning too many dates and bloating the response
+    const maxDatesToReturn = Math.min(CONFIG.daysToLookAhead, 90); // Return at most 90 days
+    dates = dates.slice(0, maxDatesToReturn);
     
-    console.log(`Found ${dates.length} available dates (only business days: ${CONFIG.businessDays.join(', ')}) for up to ${CONFIG.daysToLookAhead} days ahead`);
-    return dates;
+    // Final check for duplicates
+    const finalCheck = new Set(dates);
+    
+    // Log if we found any duplicates in our final check
+    if (finalCheck.size !== dates.length) {
+      console.log(`WARNING: Still found duplicates after processing! Original: ${dates.length}, Cleaned: ${finalCheck.size}`);
+    }
+    
+    // Return deduplicated array of dates
+    const uniqueDates = [...finalCheck];
+    
+    console.log(`Returning ${uniqueDates.length} available dates (out of max ${maxDatesToReturn}) for up to ${CONFIG.daysToLookAhead} days ahead`);
+    
+    // Log if we filtered any past dates
+    if (sheetData.filteredPastDates > 0) {
+      console.log(`Note: Filtered out ${sheetData.filteredPastDates} past dates from the sheet`);
+    }
+    
+    return uniqueDates;
   } catch (error) {
     console.error('Error getting dates:', error);
     // Generate fallback dates for the configured days ahead
@@ -662,13 +760,20 @@ async function getAvailableDates(barber) {
     }
     
     console.log(`Generated ${fallbackDates.length} fallback dates for the next ${CONFIG.daysToLookAhead} days`);
-    return fallbackDates;
+    // Return deduplicated array of fallback dates
+    return [...new Set(fallbackDates)];
   }
 }
 
 // Function to get available times from sheet
 async function getAvailableTimes(date, barber) {
   try {
+    // First check if this date is in the past
+    if (isDateInPast(date)) {
+      console.log(`Date ${date} is in the past, returning no available times`);
+      return [];
+    }
+    
     const sheetData = await loadSheetData();
     if (!sheetData) {
       console.log('Using fallback time data');
@@ -693,12 +798,22 @@ async function getAvailableTimes(date, barber) {
       
       console.log(`Business hours: ${startHour}:${startMinute || '00'} to ${endHour}:${endMinute || '00'} (hours in 24h format)`);
       
-      // Generate hourly slots - INCLUDE the end hour (6 PM)
-      for (let h = startHour; h <= endHour; h++) {
+      // Generate hourly slots - only up to 6 PM (18:00), not 7 PM
+      for (let h = startHour; h < endHour; h++) {
         const hour = h % 12 === 0 ? 12 : h % 12;
         const period = h < 12 ? 'AM' : 'PM';
+        const timeString = `${hour}:00 ${period}`;
+        
         fallbackTimes.push({
-          time: `${hour}:00 ${period}`,
+          time: timeString,
+          barber: barber || 'Michael'
+        });
+      }
+      
+      // Add the final hour (6 PM) explicitly
+      if (endHour === 18) {
+        fallbackTimes.push({
+          time: '6:00 PM',
           barber: barber || 'Michael'
         });
       }
@@ -747,23 +862,31 @@ async function getAvailableTimes(date, barber) {
 
     console.log(`Filtering times between ${startHour}:${startMinute || '00'} and ${endHour}:${endMinute || '00'} (hours in 24h format)`);
     
-    // Filter times outside of working hours - ENSURE we include exactly 6 PM (18:00)
+    // Filter times outside of working hours - exclude 7 PM
     const filteredByHours = availableTimes.filter(timeObj => {
       const minutes = timeToMinutes(timeObj.time);
       const hours = Math.floor(minutes / 60);
       
-      // Check if time is within business hours - include the exact end hour (6 PM / 18:00)
+      // Check if time is within business hours (10 AM to 6 PM, excluding 7 PM)
       const isWithinHours = hours >= startHour && hours <= endHour;
-      console.log(`Time ${timeObj.time}: hours=${hours}, within hours=${isWithinHours}`);
+      
+      // Also explicitly exclude 7:00 PM
+      if (timeObj.time === '7:00 PM') {
+        console.log('Filtering out 7:00 PM slot');
+        return false;
+      }
+      
       return isWithinHours;
     });
     
     // Apply 2-hour booking window restriction
     const now = new Date();
-    const currentDate = now.toLocaleDateString('en-US', { 
+    const pacificNow = new Date(now.toLocaleString("en-US", {timeZone: CONFIG.timeZone}));
+    const currentDate = pacificNow.toLocaleDateString('en-US', { 
       month: 'numeric', 
       day: 'numeric', 
-      year: 'numeric' 
+      year: 'numeric',
+      timeZone: CONFIG.timeZone
     });
     
     // Convert date string to Date object
@@ -778,11 +901,11 @@ async function getAvailableTimes(date, barber) {
     
     // If it's today, filter out times that are less than 2 hours from now
     if (isToday) {
-      console.log(`Current time: ${now.toLocaleTimeString()}, filtering times less than 2 hours from now`);
+      console.log(`Current Pacific time: ${pacificNow.toLocaleTimeString()}, filtering times less than 2 hours from now`);
       
-      // Current time in minutes since midnight
-      const currentHour = now.getHours();
-      const currentMinute = now.getMinutes();
+      // Current time in minutes since midnight Pacific time
+      const currentHour = pacificNow.getHours();
+      const currentMinute = pacificNow.getMinutes();
       const currentTimeInMinutes = currentHour * 60 + currentMinute;
       
       // Add 2 hours (120 minutes) for minimum booking window
@@ -814,6 +937,11 @@ async function getAvailableTimes(date, barber) {
     // Log the final available times to help with debugging
     console.log(`Final available times: ${finalTimes.map(t => t.time).join(', ')}`);
     
+    // Log if we filtered any past dates
+    if (sheetData.filteredPastDates > 0) {
+      console.log(`Note: Already filtered out ${sheetData.filteredPastDates} past dates from the sheet`);
+    }
+    
     return finalTimes;
   } catch (error) {
     console.error('Error getting times:', error);
@@ -838,12 +966,22 @@ async function getAvailableTimes(date, barber) {
     
     console.log(`Error fallback - Business hours: ${startHour}:${startMinute || '00'} to ${endHour}:${endMinute || '00'} (hours in 24h format)`);
     
-    // Generate hourly slots - ENSURE we include 6 PM
-    for (let h = startHour; h <= endHour; h++) {
+    // Generate hourly slots - only up to 6 PM, not including 7 PM
+    for (let h = startHour; h < endHour; h++) {
       const hour = h % 12 === 0 ? 12 : h % 12;
       const period = h < 12 ? 'AM' : 'PM';
+      const timeString = `${hour}:00 ${period}`;
+      
       fallbackTimes.push({
-        time: `${hour}:00 ${period}`,
+        time: timeString,
+        barber: barber || 'Michael'
+      });
+    }
+    
+    // Add the final hour (6 PM) explicitly
+    if (endHour === 18) {
+      fallbackTimes.push({
+        time: '6:00 PM',
         barber: barber || 'Michael'
       });
     }
@@ -988,6 +1126,19 @@ exports.handler = async function(event, context) {
           body: JSON.stringify({
             success: false,
             message: 'Missing required booking information'
+          })
+        };
+      }
+      
+      // Check if the booking date is in the past
+      if (isDateInPast(booking.date)) {
+        console.log(`Booking attempted for past date: ${booking.date}`);
+        return {
+          statusCode: 400,
+          headers: HEADERS,
+          body: JSON.stringify({
+            success: false,
+            message: 'Cannot book appointments for past dates. Please select a future date.'
           })
         };
       }
